@@ -87,19 +87,8 @@ if Path("/usr/bin/xhost").exists():
 
 # ── Entry ──────────────────────────────────────────────────────────────────
 def main() -> None:
-    from ui import JarvisUI                      # noqa: E402
-    from core.jarvis_core import JarvisLocal     # noqa: E402
-    from memory.config_manager import load_config  # noqa: E402
-
-    # ── Pre-import torch in background immediately ──────────────────────
-    # By the time the TTS thread starts (~5s from now), torch will already
-    # be in sys.modules — removing it from the TTS critical path entirely.
-    def _preload_torch():
-        try:
-            import torch  # noqa: F401  (side-effect import only)
-        except Exception:
-            pass
-    threading.Thread(target=_preload_torch, daemon=True).start()
+    from ui import JarvisUI
+    from memory.config_manager import load_config
 
     ui = JarvisUI("face.png")
 
@@ -107,10 +96,20 @@ def main() -> None:
         # 1. Wait until the user completes the setup overlay (first run)
         #    or config already exists (subsequent runs).
         ui.wait_for_api_key()
-        # 2. Install any missing engine packages before loading engines.
+        cfg = load_config()
+        # 2. Pre-import torch in background — only needed for Kokoro TTS /
+        #    Whisper CUDA detection; skipped for cloud LLM + EdgeTTS to keep
+        #    startup fast.
+        if cfg.get("tts_engine", "edgetts").lower() == "kokoro" or cfg.get("stt_engine", "whisper").lower() == "whisper":
+            def _preload_torch():
+                try:
+                    import torch  # noqa: F401  (side-effect import only)
+                except Exception:
+                    pass
+            threading.Thread(target=_preload_torch, daemon=True).start()
+        # 3. Install any missing engine packages before loading engines.
         #    Progress is streamed to the log panel in real time.
         ui.write_log("SYS: Checking dependencies…")
-        cfg = load_config()
         _install_done = threading.Event()
         def _do_install():
             try:
@@ -122,7 +121,10 @@ def main() -> None:
                 _install_done.set()
         threading.Thread(target=_do_install, daemon=True).start()
         _install_done.wait()   # blocks runner thread; UI remains responsive
-        # 3. Start the assistant (loads STT / TTS / LLM).
+        # 4. Start the assistant (loads STT / TTS / LLM).
+        #    Imported here — after the window is already visible — so the
+        #    ~2 s of action-module imports don't delay first paint.
+        from core.jarvis_core import JarvisLocal
         jarvis = JarvisLocal(ui)
         try:
             jarvis.run()

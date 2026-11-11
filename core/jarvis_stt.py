@@ -108,6 +108,12 @@ def _listen_vosk(self) -> None:
                     chunk = q.get(timeout=0.1)
                     text, is_final = self._stt.process_chunk(chunk.tobytes())
                     if is_final and text.strip():
+                        self._prefetch_thread = threading.Thread(
+                            target=self._prefetch_context,
+                            args=(text,),
+                            daemon=True,
+                        )
+                        self._prefetch_thread.start()
                         self.process_message(text)
                 except queue.Empty:
                     pass
@@ -124,6 +130,20 @@ def _text_command_loop(self) -> None:
         try:
             text = self._text_queue.get(timeout=0.5)
             if text.strip():
+                # Overlap the (network-bound) semantic-memory prefetch with
+                # intent routing — voice turns already did this, text turns
+                # were doing all the work serially.
+                try:
+                    self._prefetched_vec = None
+                    self._prefetched_skill = None
+                    self._prefetch_thread = threading.Thread(
+                        target=self._prefetch_context,
+                        args=(text,),
+                        daemon=True,
+                    )
+                    self._prefetch_thread.start()
+                except Exception:
+                    self._prefetch_thread = None
                 with self._processing_lock:
                     self.process_message(text)
         except queue.Empty:

@@ -13,7 +13,7 @@ from typing import Any
 from memory.vector_memory import get_relevant_context, store_conversation
 from skills.skill_loader  import get_active_skill_context
 from actions.intent_router import route as route_intent
-from core.jarvis_utils   import _is_greeting
+from core.jarvis_utils   import _is_greeting, _is_smalltalk
 from core.tools.declarations import OLLAMA_TOOLS
 from core.llm_client     import call_llm_stream
 
@@ -39,8 +39,13 @@ def _prefetch_context(self, user_text: str) -> None:
         self._prefetched_vec   = get_relevant_context(user_text)
         self._prefetched_skill = get_active_skill_context(user_text)
     except Exception:
-        self._prefetched_vec   = ""
-        self._prefetched_skill = ""
+        # None = "no prefetch available" → caller does the inline load.
+        self._prefetched_vec   = None
+        self._prefetched_skill = None
+    finally:
+        # Tag which turn this prefetch belongs to, so a thread that finishes
+        # late can't leak its (stale) context into the next turn.
+        self._prefetched_for = user_text
 
 # ------------------------------------------------------------------
 # Ultra-fast general-knowledge answers
@@ -55,7 +60,7 @@ def _fast_general_answer(self, user_text: str) -> None:
         from core.jarvis_general import ask_general  # noqa: E402
         answer = ask_general(user_text)
         if answer:
-            self.ui.write_log_instant(f"Jarvis: {answer}")
+            self.ui.write_log_instant(f"Atlantis: {answer}")
             self.speak(answer)
             assistant_msg = {"role": "assistant", "content": answer}
             with self._conv_lock:
@@ -95,7 +100,7 @@ def _offline_identity_scope_reply(user_text: str) -> str:
         return ""
 
     return (
-        "I am JARVIS MARK XL, Rami Maalej’s desktop AI assistant. "
+        "I am ATLANTIS MARK XL, Rami Maalej’s desktop AI assistant. "
         "One real capability is routing supported local tools or configured "
         "AI providers and reporting their verified results. I must not claim "
         "that I opened an application, read your screen, accessed private data, "
@@ -136,13 +141,6 @@ def _process_message(self, user_text: str) -> None:
     def _cancelled() -> bool:
         return _gen != self._generation
 
-    # Wait for background prefetch to complete (started in _listen_whisper)
-    pf_thread = getattr(self, "_prefetch_thread", None)
-    if pf_thread and pf_thread.is_alive():
-        pf_thread.join(timeout=2.0)
-    # If it didn't finish in time, _build_system_prompt falls through to inline load
-    self._prefetch_thread = None
-
     self._auto_switch_language(user_text)
     self.ui.set_state("THINKING")
     self.ui.write_log(f"You: {user_text}")
@@ -161,7 +159,7 @@ def _process_message(self, user_text: str) -> None:
     # provider, a local model server, or the network is being repaired.
     offline_reply = _offline_identity_scope_reply(user_text)
     if offline_reply:
-        self.ui.write_log_instant(f"Jarvis: {offline_reply}")
+        self.ui.write_log_instant(f"Atlantis: {offline_reply}")
         self.speak(offline_reply)
         assistant_msg = {"role": "assistant", "content": offline_reply}
         with self._conv_lock:
@@ -184,10 +182,6 @@ def _process_message(self, user_text: str) -> None:
     if len(self._conversation) > MAX_HISTORY:
         self._conversation = self._conversation[-MAX_HISTORY:]
 
-    messages = [
-        {"role": "system", "content": self._build_system_prompt(user_text)}
-    ] + list(self._conversation)
-
     # ── Intent Router: bypass LLM for common commands ─────────────────
     self._last_intent = route_intent(user_text)
     if self._last_intent.matched and not self._last_intent.requires_ai:
@@ -200,7 +194,7 @@ def _process_message(self, user_text: str) -> None:
             return
         if result:
             self.speak(result)
-            self.ui.write_log_instant(f"Jarvis: {result}")
+            self.ui.write_log_instant(f"Atlantis: {result}")
         assistant_msg = {"role": "assistant", "content": result or ""}
         with self._conv_lock:
             self._conversation.append(assistant_msg)
@@ -230,6 +224,25 @@ def _process_message(self, user_text: str) -> None:
     except Exception:
         pass
 
+    # Fast paths above are done - the LLM will run, so now wait for the
+    # background prefetch (started in _listen_whisper / _text_command_loop)
+    # and build the system prompt.  Direct intents and fast general answers
+    # skip this entirely.
+    pf_thread = getattr(self, "_prefetch_thread", None)
+    if pf_thread and pf_thread.is_alive():
+        pf_thread.join(timeout=2.0)
+    # If it didn't finish in time, _build_system_prompt falls through to inline load
+    self._prefetch_thread = None
+
+    messages = [
+        {"role": "system", "content": self._build_system_prompt(user_text)}
+    ] + list(self._conversation)
+
+    # Consume the prefetch — leaving it set made the NEXT turn reuse this
+    # turn's (or a timed-out turn's) context.
+    self._prefetched_vec = None
+    self._prefetched_skill = None
+
     # Tools whose output needs a second LLM round to summarise/interpret.
     # Everything else returns a user-ready string → speak directly.
     _NEEDS_LLM_ROUND = {"web_search", "screen_process", "agent_task"}
@@ -239,6 +252,12 @@ def _process_message(self, user_text: str) -> None:
         "open_app", "computer_control", "computer_settings",
         "send_message", "play_music", "game_updater", "flight_finder",
     }
+
+    # Read model_overrides ONCE per turn instead of every tool round.
+    try:
+        _model_overrides = _load_config().get("model_overrides", {})
+    except Exception:
+        _model_overrides = {}
 
     MAX_TOOL_ROUNDS = 6
     for _round in range(MAX_TOOL_ROUNDS):
@@ -259,15 +278,15 @@ def _process_message(self, user_text: str) -> None:
 
         # Ollama, Groq, NVIDIA NIM, OpenRouter, and OpenAI-compatible
         # providers all support tool calling — send tools unless it's
-        # a greeting on the first round.
+        # social chatter on the first round (saves the ~16 KB payload).
         _tools = None
-        if not (_round == 0 and _is_greeting(user_text)):
+        if not (_round == 0 and _is_smalltalk(user_text)):
             _tools = OLLAMA_TOOLS
 
         # ── Apply per-intent model override if configured ──────────
         override = None
         if self._last_intent.matched:
-            ov = _load_config().get("model_overrides", {}).get(self._last_intent.intent_name)
+            ov = _model_overrides.get(self._last_intent.intent_name)
             if ov:
                 override = (ov.get("provider"), ov.get("model"))
         try:
@@ -280,7 +299,7 @@ def _process_message(self, user_text: str) -> None:
                     _streamed.append(event["text"])
                     self.speak(event["text"])
                     if len(_streamed) == 1:
-                        self.ui.write_log_instant(f"Jarvis: {event['text']}")
+                        self.ui.write_log_instant(f"Atlantis: {event['text']}")
                     else:
                         self.ui.write_log_instant(event["text"])
                 elif event["type"] == "done":
@@ -290,7 +309,7 @@ def _process_message(self, user_text: str) -> None:
             short = str(e)[:120]
             self.ui.write_log(f"ERR: LLM — {short}")
             reply = _llm_unavailable_reply(short)
-            self.ui.write_log_instant(f"Jarvis: {reply}")
+            self.ui.write_log_instant(f"Atlantis: {reply}")
             self.speak(reply)
             fallback = {"role": "assistant", "content": reply}
             with self._conv_lock:
@@ -298,13 +317,13 @@ def _process_message(self, user_text: str) -> None:
             return
 
         # ── Greeting guard ────────────────────────────────────────────────
-        # Small models hallucinate action tool calls for greetings.
-        # Strip ALL tool calls if user just said hello — the prompt already
-        # tells the model not to run tools for general chat.
-        if final_tool_calls and _round == 0 and _is_greeting(user_text):
+        # Small models hallucinate action tool calls for social chatter.
+        # Strip ALL tool calls if the user just said hello / how are you —
+        # the prompt already tells the model not to run tools for chat.
+        if final_tool_calls and _round == 0 and _is_smalltalk(user_text):
             final_tool_calls = []
             if not final_content:
-                final_content = "Hello! How can I help you?"
+                final_content = "Hey. What's on your mind?"
 
         # ── No tool calls: pure conversational reply ─────────────────────
         if not final_tool_calls:
@@ -320,7 +339,7 @@ def _process_message(self, user_text: str) -> None:
                 messages.append(assistant_msg)
                 with self._conv_lock:
                     self._conversation.append(assistant_msg)
-                self.ui.write_log(f"Jarvis: {final_content}")
+                self.ui.write_log(f"Atlantis: {final_content}")
                 self.speak(final_content)
             # Store in vector memory
             if final_content:
@@ -361,7 +380,7 @@ def _process_message(self, user_text: str) -> None:
             messages.append(assistant_msg2)
             with self._conv_lock:
                 self._conversation.append(assistant_msg2)
-            self.ui.write_log(f"Jarvis: {final_content}")
+            self.ui.write_log(f"Atlantis: {final_content}")
             if not _streamed:
                 self.speak(final_content)
             break
@@ -417,7 +436,7 @@ def _process_message(self, user_text: str) -> None:
             messages.append(_amsg)
             with self._conv_lock:
                 self._conversation.append(_amsg)
-            self.ui.write_log(f"Jarvis: {_reply}")
+            self.ui.write_log(f"Atlantis: {_reply}")
             self.speak(_reply)
             # Store in vector memory
             threading.Thread(target=store_conversation, args=(user_text, _reply), daemon=True).start()
@@ -438,6 +457,9 @@ def _process_message(self, user_text: str) -> None:
 def _llm_error_hint(short: str) -> str:
     """Return a short, actionable hint for common LLM errors (URL/Auth)."""
     s = short.lower()
+    if "rate-limited" in s or "429" in s:
+        return ("All cloud providers are rate-limited on the free tier right "
+                "now — give it about a minute and ask me again.")
     if "localhost:11434" in short or "ollama" in s:
         return "Local model server (Ollama) is not reachable — run: ollama serve"
     if "401" in s or "api key" in s or "unauthorized" in s or "forbidden" in s:

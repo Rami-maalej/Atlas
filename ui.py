@@ -641,7 +641,7 @@ class HudCanvas(QWidget):
             p.setPen(QPen(qcol(_CYAN, 220), 1))
             p.setFont(QFont("Courier New", 12, QFont.Weight.Bold))
             p.drawText(QRectF(cx - 90, cy - 16, 180, 32),
-                       Qt.AlignmentFlag.AlignCenter, "J.A.R.V.I.S")
+                       Qt.AlignmentFlag.AlignCenter, "ATLANTIS")
 
         # blue glow particles
         for pt in self._particles:
@@ -821,7 +821,7 @@ class LogWidget(QTextEdit):
         # Tag-based prefix + coloring
         prefix_map = {
             "you":  ("You",  qcol(C.WHITE)),
-            "ai":   ("Jarvis", qcol(C.ACC)),
+            "ai":   ("Atlantis", qcol(C.ACC)),
             "err":  ("Error", qcol(C.RED)),
             "file": ("File",  qcol(C.TEXT_MED)),
             "sys":  ("System", qcol(C.TEXT_DIM)),
@@ -882,7 +882,7 @@ class LogWidget(QTextEdit):
                 # Insert tag prefix at start of line
                 prefix_map = {
                     "you":  ("You",  qcol(C.WHITE)),
-                    "ai":   ("Jarvis", qcol(C.ACC)),
+                    "ai":   ("Atlantis", qcol(C.ACC)),
                     "err":  ("Error", qcol(C.RED)),
                     "file": ("File",  qcol(C.TEXT_MED)),
                     "sys":  ("System", qcol(C.TEXT_DIM)),
@@ -913,7 +913,7 @@ class LogWidget(QTextEdit):
 
 class ChatWidget(QWidget):
     """Message-area widget styled like a modern chat (bubbles, right-aligned
-    user messages, left-aligned Jarvis replies).
+    user messages, left-aligned Atlantis replies).
 
     Palette is strictly BLACK & WHITE — the only accent kept is BLUE (C.ACC)
     for the user's bubbles and interactive states.
@@ -948,7 +948,7 @@ class ChatWidget(QWidget):
             # User bubble: No border, dark panel background — right aligned
             return (f"QWidget {{ background: #1A1A1A; border: none; border-radius: 0px; margin-left: 80px; padding: 2px; }}"
                     f"QLabel {{ color: #ffffff; background: transparent; border: none; }}")
-        # Jarvis bubble: Subtle accent border on left — left aligned
+        # Atlantis bubble: Subtle accent border on left — left aligned
         return (f"QWidget {{ background: #000000; border-left: 3px solid {C.ACC}; border-radius: 0px; margin-right: 80px; padding: 2px; }}"
                 f"QLabel {{ color: #ffffff; background: transparent; border: none; }}")
 
@@ -1011,7 +1011,7 @@ class ChatWidget(QWidget):
                         lbl.setStyleSheet(f"color: {C.TEXT}; background: transparent; border: none;")
 
     def add_message(self, text: str, tag: str = "sys") -> None:
-        """Parse 'You: …' / 'Jarvis: …' and render as chat bubbles.
+        """Parse 'You: …' / 'Atlantis: …' (or legacy 'Jarvis: …') and render as chat bubbles.
         Anything else (SYS / ERR / FILE / INTENT / tool activity) is dropped
         — no logs, only the conversation."""
         tl = text.strip()
@@ -1027,7 +1027,7 @@ class ChatWidget(QWidget):
 
         if low.startswith(("you:", "you :")):
             self._add_bubble(tl.split(":", 1)[1].strip(), "you")
-        elif low.startswith(("jarvis:", "jarvis :")):
+        elif low.startswith(("atlantis:", "atlantis :", "jarvis:", "jarvis :")):
             self._add_bubble(tl.split(":", 1)[1].strip(), "ai")
         # everything else is silently ignored
 
@@ -1142,7 +1142,7 @@ class FileDropZone(QWidget):
 
     def _browse(self):
         path, _ = QFileDialog.getOpenFileName(
-            self, "Select a file for JARVIS", str(Path.home()),
+            self, "Select a file for ATLANTIS", str(Path.home()),
             "All Files (*.*);;"
             "Images (*.jpg *.jpeg *.png *.gif *.webp *.bmp *.svg);;"
             "Documents (*.pdf *.docx *.txt *.md *.pptx);;"
@@ -1367,10 +1367,10 @@ class SetupOverlay(QWidget):
         text_layout = QVBoxLayout()
         if mode == "config":
             text_layout.addWidget(_lbl("CONFIGURATION", 16, True, align=Qt.AlignmentFlag.AlignLeft))
-            text_layout.addWidget(_lbl("Update J.A.R.V.I.S. settings and click Apply.", 10, col=C.PRI_DIM, align=Qt.AlignmentFlag.AlignLeft))
+            text_layout.addWidget(_lbl("Update ATLANTIS settings and click Apply.", 10, col=C.PRI_DIM, align=Qt.AlignmentFlag.AlignLeft))
         else:
             text_layout.addWidget(_lbl("INITIALISATION REQUIRED", 16, True, align=Qt.AlignmentFlag.AlignLeft))
-            text_layout.addWidget(_lbl("Configure J.A.R.V.I.S. before first boot.", 10, col=C.PRI_DIM, align=Qt.AlignmentFlag.AlignLeft))
+            text_layout.addWidget(_lbl("Configure ATLANTIS before first boot.", 10, col=C.PRI_DIM, align=Qt.AlignmentFlag.AlignLeft))
         header_layout.addLayout(text_layout)
         
         self._theme_combo = QComboBox()
@@ -2784,10 +2784,11 @@ class MainWindow(QMainWindow):
     _open_todo_sig = pyqtSignal(str)
     _close_tutor_sig = pyqtSignal()
     _api_key_sig   = pyqtSignal(str, str)  # service_name, key_name
+    _open_mail_sig = pyqtSignal()          # thread-safe "open mail screen"
 
     def __init__(self, face_path: str):
         super().__init__()
-        self.setWindowTitle("J.A.R.V.I.S — MARK XL")
+        self.setWindowTitle("ATLANTIS — MARK XL")
         self.setMinimumSize(_MIN_W, _MIN_H)
         self.resize(_DEFAULT_W, _DEFAULT_H)
 
@@ -2889,6 +2890,7 @@ class MainWindow(QMainWindow):
         self._open_tutor_sig.connect(self.open_tutor_panel)
         self._open_todo_sig.connect(self.open_todo_panel)
         self._close_tutor_sig.connect(self.close_tutor_panel)
+        self._open_mail_sig.connect(self._show_mail)
 
         self._api_key_event = threading.Event()
         self._api_key_result = ""
@@ -2951,7 +2953,7 @@ class MainWindow(QMainWindow):
                 iw, ih,
             )
             self.hud.setMinimumSize(260, 60)
-            self.setWindowTitle("J.A.R.V.I.S  ●")
+            self.setWindowTitle("ATLANTIS  ●")
             self._island_btn.setText("◈  EXPAND  [F12]")
         else:
             self.hud.setMinimumSize(300, 300)
@@ -2965,7 +2967,7 @@ class MainWindow(QMainWindow):
             self.setMaximumSize(16777215, 16777215)
             if self._normal_geometry:
                 self.setGeometry(self._normal_geometry)
-            self.setWindowTitle("J.A.R.V.I.S — MARK XL")
+            self.setWindowTitle("ATLANTIS — MARK XL")
             self._island_btn.setText("◈  DYNAMIC ISLAND  [F12]")
 
     def _on_hud_clicked(self):
@@ -3117,7 +3119,7 @@ class MainWindow(QMainWindow):
         lay = QHBoxLayout(w)
         lay.setContentsMargins(16, 0, 16, 0)
 
-        title = QLabel("J.A.R.V.I.S")
+        title = QLabel("ATLANTIS")
         title.setFont(QFont("Courier New", 13, QFont.Weight.Bold))
         title.setStyleSheet(f"color: {C.ACC}; background: transparent;")
         lay.addWidget(title)
@@ -3391,6 +3393,7 @@ class MainWindow(QMainWindow):
             ("Fullscr.", self._toggle_fullscreen),
             ("Providers", self._show_providers),
             ("Ollama", self._show_ollama_models),
+            ("Mail", self._show_mail),
             ("Settings", self._show_config),
             ("Connect.", self._show_connections),
             ("Island", self._toggle_island),
@@ -3486,7 +3489,7 @@ class MainWindow(QMainWindow):
         cat  = _file_category(p)
         icon, _ = _FILE_ICONS.get(cat, _FILE_ICONS["unknown"])
         size = _fmt_size(p.stat().st_size)
-        self._file_hint.setText(f"{icon}  {p.name}  ·  {size}  ·  Tell JARVIS what to do with it")
+        self._file_hint.setText(f"{icon}  {p.name}  ·  {size}  ·  Tell ATLANTIS what to do with it")
         self._log.append_log(f"FILE: {p.name} ({size}) loaded")
         if self.on_text_command:
             msg = (
@@ -3806,6 +3809,27 @@ class MainWindow(QMainWindow):
         ov.show()
         self._overlay_prov = ov
 
+    def _show_mail(self):
+        """Open the Gmail-style mail screen (folders · list · reading pane)."""
+        if getattr(self, "_overlay_mail", None) and self._overlay_mail.isVisible():
+            self._overlay_mail.raise_()
+            return
+        from core.mail_overlay import MailOverlay
+        ov = MailOverlay(self.centralWidget())
+        cw = self.centralWidget()
+        ow, oh = min(cw.width() - 20, 980), min(cw.height() - 20, 640)
+        ov.setGeometry(
+            (cw.width()  - ow) // 2,
+            (cw.height() - oh) // 2,
+            ow, oh,
+        )
+        ov.show()
+        self._overlay_mail = ov
+
+    def open_mail_screen(self):
+        """Thread-safe: open the mail screen (safe to call from tools/LLM)."""
+        self._open_mail_sig.emit()
+
     def _on_providers_done(self, diff_json: str):
         import json
         import os
@@ -3923,6 +3947,10 @@ class JarvisUI:
 
     def open_tutor_panel(self, url: str):
         self._win._open_tutor_sig.emit(url)
+
+    def open_mail_screen(self):
+        """Thread-safe — open the Gmail-style mail screen."""
+        self._win._open_mail_sig.emit()
 
     def close_tutor_panel(self):
         self._win._close_tutor_sig.emit()

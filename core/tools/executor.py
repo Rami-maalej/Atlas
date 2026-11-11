@@ -2,6 +2,7 @@
 from __future__ import annotations
 import json
 import threading
+from datetime import datetime
 import traceback
 
 # ── Action imports (identiques au main.py original) ──────────────────────
@@ -26,10 +27,8 @@ from actions.get_datetime import get_datetime
 from actions.send_message import send_message
 from actions.reminder import reminder
 from actions.computer_settings import computer_settings
-from actions.screen_processor import screen_process
 from actions.youtube_video import youtube_video
 from actions.desktop import desktop_control
-from actions.browser_control import browser_control
 from actions.books import book_controller
 from actions.jobs import job_search_action
 from actions.file_controller import file_controller
@@ -39,10 +38,7 @@ from actions.web_search import web_search as web_search_action
 from actions.computer_control import computer_control
 from actions.game_updater import game_updater
 from actions.get_location import get_location
-from actions.browser_use_agent import run_browser_use_task
 from actions.screen_reader import get_ui_elements, get_active_window_info
-from actions.face_recognition import detect_faces, analyze_camera_feed
-from actions.wake_word import start_wake_word, stop_wake_word
 from actions.github_integration import _get_client as _get_gh_client
 from actions.github_integration import clone_and_run
 from actions.file_search import search_files
@@ -50,7 +46,7 @@ from actions.finance_tracker import _get_client as _get_finance_client
 from actions.network_discovery import discover_services, get_local_ips
 from actions.voice_calls import _get_client as _get_lk_client
 from actions.monitor_manager import get_monitors, get_monitor_summary, set_monitor_brightness, get_active_monitor
-from actions.obsidian_vault import save_note, search_notes, list_notes, create_knowledge_graph, set_vault_path, get_all_tags
+from actions.obsidian_vault import save_note, search_notes, read_note, list_notes, create_knowledge_graph, set_vault_path, get_all_tags
 from actions.package_manager import install_package, uninstall_package, list_installed, update_all, detect_os_package_manager
 from actions.goal_engine import create_goal, list_goals, get_goal, update_goal_progress, complete_step, delete_goal, get_goal_summary
 from actions.task_manager import task_manager, budget_manager, add_task, complete_task, delete_task, list_tasks, add_transaction, list_transactions, budget_summary
@@ -63,7 +59,6 @@ import actions.media_downloader as _dl
 import actions.network_tools as _net
 import actions.process_mgr as _proc
 import actions.archive_tools as _arch
-import actions.image_edit as _img
 import actions.wiki_tools as _wiki
 import actions.system_health as _health
 import actions.news_pro as _news_pro
@@ -77,13 +72,12 @@ from actions.random_tools import dice_roll as _dice_roll, coin_flip as _coin_fli
 from actions.notes_tools import quick_note_save as _note_save, quick_note_list as _note_list, quick_note_find as _note_find
 from actions.system_info_tools import battery_status as _battery, disk_info as _disk_info, wifi_status as _wifi
 from actions.screenshot_ocr import screen_find_text as _screen_find
-from actions.comfyui import generate_image
-from actions.file_converter import convert_file
+# Heavy tool modules (playwright, cv2 pipelines, pptx, networkx) are imported
+# lazily at their call sites — keeps startup ~2 s faster.
 from actions.random_number import random_number
 from actions.system_info import system_info
 from actions.unit_converter import convert_units
 from actions.timer_scheduler import handle as timer_handle, set_on_fire as timer_set_callback
-from actions.task_graph import create_task as tg_create_task, complete_task as tg_complete_task, get_available_tasks, get_task_graph_summary, get_critical_path, delete_task as tg_delete_task, reset_graph
 from actions.security_vault import store_secret, get_secret, list_secrets, delete_secret
 from actions.context_bus import get_bus, get_context, get_all_context
 from actions.project_scaffold import scaffold_project
@@ -134,7 +128,7 @@ def execute_tool(ui, name: str, args: dict,
                  run_async=lambda c: None,
                  shutdown=lambda: None,
                  ) -> str:
-    print(f"[JARVIS] 🔧 {name}  {args}")
+    print(f"[ATLANTIS] 🔧 {name}  {args}")
     ui.set_state("THINKING")
 
     if name == "greeting":
@@ -154,6 +148,17 @@ def execute_tool(ui, name: str, args: dict,
                 print(f"[Memory] 📋 Appended to {category}/{key}")
             update_memory({category: {key: {"value": value}}})
             print(f"[Memory] 💾 {category}/{key} = {value}")
+            # Mirror every remembered fact into the Obsidian vault — the vault
+            # is the persistent, shared memory (save_note maps category→folder).
+            try:
+                from actions.obsidian_vault import save_note as _vault_save
+                _vault_save(
+                    title=key,
+                    content=f"{value}\n\ncategory: {category}\nsaved: {datetime.now().isoformat(timespec='seconds')}",
+                    folder=category,
+                )
+            except Exception:
+                pass
             # Also store in vector memory for semantic search
             try:
                 threading.Thread(
@@ -208,10 +213,12 @@ def execute_tool(ui, name: str, args: dict,
             result = r or "Weather delivered."
 
         elif name == "browser_control":
+            from actions.browser_control import browser_control
             r = browser_control(parameters=args, player=ui)
             result = r or "Done."
 
         elif name == "browser_use":
+            from actions.browser_use_agent import run_browser_use_task
             task = args.get("task", "")
             headless = args.get("headless", True)
             max_steps = int(args.get("max_steps", 30))
@@ -243,6 +250,7 @@ def execute_tool(ui, name: str, args: dict,
 
         elif name == "screen_process":
             # Synchronous call — returns analysis text which the LLM can speak
+            from actions.screen_processor import screen_process
             r = screen_process(parameters=args, response=None, player=ui, session_memory=None)
             result = r if isinstance(r, str) and r else "Screen analyzed."
 
@@ -251,6 +259,7 @@ def execute_tool(ui, name: str, args: dict,
             result = r if isinstance(r, str) and r else "I cannot do that."
 
         elif name == "generate_image":
+            from actions.comfyui import generate_image
             r = generate_image(parameters=args)
             result = r if isinstance(r, str) and r else "Image generation failed."
 
@@ -523,6 +532,60 @@ def execute_tool(ui, name: str, args: dict,
             else:
                 result = f"Unknown action: {action}"
 
+        elif name == "capabilities":
+            # REAL data only — no canned lists: observed skills from the
+            # Obsidian vault + actually-installed skills + live tool count.
+            lines = []
+            # 1. Skill notes Rami wrote / we scripted into the vault —
+            #    summarised cleanly (no provenance noise) for speech.
+            vault_skills = ""
+            try:
+                from actions.obsidian_vault import recall_context
+                vault_skills = recall_context("skills experience technologies") or ""
+            except Exception:
+                vault_skills = ""
+            skill_summary = ""
+            if vault_skills:
+                import re as _re
+                plainified = []
+                for chunk in _re.split(r"\n\[(?=[A-Za-z]+ / )", vault_skills):
+                    body = chunk.split("\n", 1)[1] if "\n" in chunk else chunk
+                    body = _re.sub(
+                        r"^#{1,6}\s*.*$|^\s*[-*|>]+\s*$|!\[[^\]]*\]\([^)]*\)|\[\[([^\]|]+)(\|[^\]]*)?\]\]|\[([^\]]+)\]\([^)]*\)|[|`*_]",
+                        lambda m: (m.group(1) or m.group(2) or m.group(3)) if m.lastindex else "",
+                        body,
+                        flags=_re.M,
+                    )
+                    words = " ".join(x for x in body.split() if _re.search(r"\w", x))
+                    labels = ("FaStl",)  # noqa unused guard
+                    if len(words) > 80:
+                        plainified.append(words[:260].rsplit(" ", 1)[0])
+                if plainified:
+                    skill_summary = "Skills & experience (from your vault):\n" + "\n".join(
+                        f"• {s}" for s in plainified[:3])
+            if skill_summary:
+                lines.append("About your skills (from your vault):")
+                lines.append(skill_summary)
+            # 2. Skills actually installed on this machine.
+            try:
+                skills = list_skills()
+            except Exception:
+                skills = []
+            if skills:
+                lines.append("\n\nInstalled practical skills:")
+                lines.extend(f"  • {s['name']}: {s['description'][:80]}" for s in skills)
+            # 3. What I can actually execute right now.
+            try:
+                from core.tools.declarations import OLLAMA_TOOLS
+                tool_names = sorted({t["function"]["name"] for t in OLLAMA_TOOLS})
+                lines.append(f"\n\nTools ready to run ({len(tool_names)}):")
+                lines.append(", ".join(tool_names))
+            except Exception:
+                pass
+            result = "\n".join(lines) if lines else "No capability data available."
+            if not result.strip():
+                result = "No capability data available."
+
         elif name == "manage_skills":
             action = args.get("action", "").lower()
             if action == "list":
@@ -705,6 +768,7 @@ def execute_tool(ui, name: str, args: dict,
             result = f"Window: {info['title']} | App: {info['app']} | Role: {info['role']}"
 
         elif name == "detect_faces":
+            from actions.face_recognition import analyze_camera_feed
             r = analyze_camera_feed()
             if "error" in r:
                 result = r["error"]
@@ -720,6 +784,7 @@ def execute_tool(ui, name: str, args: dict,
                 result = "\n".join(parts)
 
         elif name == "wake_word":
+            from actions.wake_word import start_wake_word, stop_wake_word
             action = args.get("action", "start")
             if action == "start":
                 model = args.get("model_name", "jarvis")
@@ -937,6 +1002,8 @@ def execute_tool(ui, name: str, args: dict,
                         folder=args.get("folder", ""),
                     )
                     result = f"Note saved: {r['path']}"
+                elif action == "read":
+                    result = read_note(args.get("action_note") or args.get("note") or args.get("title", ""))
                 elif action == "search":
                     notes = search_notes(
                         query=args.get("query", ""),
@@ -1056,6 +1123,15 @@ def execute_tool(ui, name: str, args: dict,
 
         # ── Task Graph ────────────────────────────────────────────────
         elif name == "task_graph":
+            from actions.task_graph import (
+                create_task as tg_create_task,
+                complete_task as tg_complete_task,
+                get_available_tasks,
+                get_task_graph_summary,
+                get_critical_path,
+                delete_task as tg_delete_task,
+                reset_graph,
+            )
             action = args.get("action", "")
             try:
                 if action == "create":
@@ -1323,6 +1399,18 @@ def execute_tool(ui, name: str, args: dict,
         elif name == "read_emails":
             result = read_emails(parameters=args, player=ui)
 
+        elif name == "open_mail_screen":
+            opener = getattr(ui, "open_mail_screen", None)
+            if callable(opener):
+                opener()
+                result = "Opening your mail screen."
+            else:
+                result = "The mail screen needs the desktop app to be running."
+
+        elif name == "type_safe_decide":
+            from core.decision_engine import decide_via_tool
+            result = decide_via_tool(args)
+
         elif name == "habit_tracker":
             result = handle_habit(parameters=args, player=ui)
 
@@ -1330,6 +1418,7 @@ def execute_tool(ui, name: str, args: dict,
             result = timer_handle(parameters=args, player=ui)
 
         elif name == "convert_file":
+            from actions.file_converter import convert_file
             result = convert_file(parameters=args, player=ui)
 
         elif name == "random_number":
@@ -1418,5 +1507,5 @@ def execute_tool(ui, name: str, args: dict,
         ui.show_error_state(f"{name} — {short}")
         traceback.print_exc()
 
-    print(f"[JARVIS] 📤 {name} → {str(result)[:80]}")
+    print(f"[ATLANTIS] 📤 {name} → {str(result)[:80]}")
     return result

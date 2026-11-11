@@ -25,6 +25,35 @@ def _is_greeting(text: str) -> bool:
     return False
 
 
+# Social chatter — not a knowledge question, not an action.  These must reach
+# the full model (with memory) instead of the no-context "fast answer" path,
+# otherwise JARVIS answers "how are you?" with a canned, forgetful line.
+_SMALLTALK = (
+    "how are you", "how're you", "how do you do", "how's it going",
+    "how is it going", "what's up", "whats up", "what is up",
+    "you ok", "you okay", "you good", "you doing ok", "how have you been",
+    "how've you been", "nice to meet", "good to see", "long time",
+    "thank you", "thanks a lot", "much appreciated", "cheers",
+    "good night", "good morning", "good afternoon", "good evening",
+    "ça va", "ca va", "tu vas bien", "vous allez bien", "comment ça va",
+    "ça fait longtemps", "merci beaucoup", "bonne nuit", "à bientot",
+    "a bientot", "je vais bien", "im doing fine", "i'm fine", "im fine",
+    "not much", "same as usual", "bored", "i'm bored", "tell me a joke",
+    "make me laugh", "do you like", "are you alive", "are you real",
+    "who are you", "what are you", "your name",
+)
+
+
+def _is_smalltalk(text: str) -> bool:
+    """True for social/chitchat messages (greetings included)."""
+    if _is_greeting(text):
+        return True
+    t = " ".join(text.lower().split())
+    if len(t) > 140:
+        return False
+    return any(p in t for p in _SMALLTALK)
+
+
 def calculate(parameters: dict = None) -> str:
     import math as _math
     import re as _re

@@ -25,14 +25,27 @@ _store_cache: dict = {"memories": [], "conversations": []}
 _store_mtime: float = 0.0
 
 def _get_config():
+    """Config read with a tiny mtime cache — _embed() calls this on every
+    embedding request (2-3 per turn) and it used to hit disk every time."""
+    global _cfg_cache, _cfg_mtime
     cfg_path = BASE_DIR / "config" / "api_keys.json"
+    try:
+        mtime = cfg_path.stat().st_mtime
+    except OSError:
+        mtime = 0.0
+    if _cfg_cache is not None and mtime == _cfg_mtime:
+        return dict(_cfg_cache)
     try:
         cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
     except Exception:
         cfg = {}
     if cfg.get("llm_url_local") or cfg.get("llm_url_remote"):
         cfg["llm_url"] = resolve_llm_url(cfg)
-    return cfg
+    _cfg_cache, _cfg_mtime = cfg, mtime
+    return dict(cfg)
+
+_cfg_cache: dict | None = None
+_cfg_mtime: float = -1.0
 
 def _get_embedding_url():
     cfg = _get_config()
@@ -58,10 +71,15 @@ def _embed(text: str) -> list[float]:
     if _embeddings_disabled:
         return []
 
+    key = text[:1000]
+    cached = _embed_cache.get(key)
+    if cached:
+        return cached
+
     cfg = _get_config()
     embed_url = _get_embedding_url()
     embed_model = cfg.get("embed_model") or _EMBED_MODEL
-    payload = {"model": embed_model, "prompt": text[:1000]}
+    payload = {"model": embed_model, "prompt": key}
 
     failure_key = f"ollama:{embed_url}"
     with _embed_lock:
@@ -78,7 +96,12 @@ def _embed(text: str) -> list[float]:
         data = resp.json()
         with _embed_lock:
             _embed_failures.pop(failure_key, None)
-        return data.get("embedding", [])
+        emb = data.get("embedding", [])
+        if emb:
+            if len(_embed_cache) > 512:
+                _embed_cache.clear()
+            _embed_cache[key] = emb
+        return emb
     except requests.exceptions.HTTPError as e:
         with _embed_lock:
             cnt = _embed_failures.get(failure_key, 0) + 1
@@ -125,9 +148,20 @@ def _invalidate_store_cache() -> None:
     _store_mtime = 0.0
 
 def _save_store(store: dict) -> None:
+    global _store_cache, _store_mtime
     VEC_PATH.parent.mkdir(parents=True, exist_ok=True)
-    VEC_PATH.write_text(json.dumps(store, indent=2, ensure_ascii=False), encoding="utf-8")
-    _invalidate_store_cache()  # next read must re-stat the file
+    # Compact JSON: the store is ~1 MB; indent=2 cost ~36 ms of dumps per turn.
+    VEC_PATH.write_text(
+        json.dumps(store, separators=(",", ":"), ensure_ascii=False),
+        encoding="utf-8",
+    )
+    # Keep the in-process cache valid for OUR OWN write — invalidating here
+    # made the next prompt build re-parse the whole file (≈23 ms/turn).
+    _store_cache = store
+    try:
+        _store_mtime = VEC_PATH.stat().st_mtime
+    except OSError:
+        _store_mtime = 0.0
 
 def store_memory(text: str, category: str = "general", source: str = "conversation") -> bool:
     emb = _embed(text)

@@ -98,6 +98,64 @@ def _is_openai_compatible(provider: str) -> bool:
     return provider in ("openai", "nvidia-nim", "openrouter", "groq", "gemini")
 
 
+# provider → (fallback_provider, api_keys.json key name, base_url, mirror models)
+# Used when the primary provider is rate-limited (429): the same request is
+# re-targeted at a free-tier mirror so a turn never dies on quota.
+_CLOUD_FALLBACKS: dict[str, tuple[str, str, str, ...]] = {
+    "gemini":     ("groq",   "groq_api_key",   "https://api.groq.com/openai/v1",
+                   "openai/gpt-oss-120b", "openai/gpt-oss-20b"),
+    "openrouter": ("groq",   "groq_api_key",   "https://api.groq.com/openai/v1",
+                   "openai/gpt-oss-120b", "openai/gpt-oss-20b"),
+    "nvidia-nim": ("groq",   "groq_api_key",   "https://api.groq.com/openai/v1",
+                   "openai/gpt-oss-120b", "openai/gpt-oss-20b"),
+    "openai":     ("groq",   "groq_api_key",   "https://api.groq.com/openai/v1",
+                   "openai/gpt-oss-120b", "openai/gpt-oss-20b"),
+    "groq":       ("gemini", "gemini_api_key", "https://generativelanguage.googleapis.com/v1beta/openai",
+                   "gemini-2.5-flash", "gemini-flash-latest"),
+}
+
+
+def _lighten_for_mirror(payload: dict, tools_drop: bool = True) -> dict:
+    """Copy of payload stripped to what small free-tier mirror buckets accept.
+
+    Tool definitions are the bulky part (~8-16 KB) — mirror attempts never
+    send them; if the context itself is still too big, truncate it.
+    """
+    import copy
+    out = copy.deepcopy(payload)
+    if tools_drop:
+        out.pop("tools", None)
+        out.pop("tool_choice", None)
+        out["messages"] = [
+            {"role": m.get("role"), "content": (m.get("content") or "")[:4000]}
+            for m in out.get("messages", [])
+        ]
+    return out
+
+
+def _mirror_candidates(payload_provider: str | None = None):
+    """Rate-limit mirror candidates so a turn never dies on quota.
+
+    Expands _CLOUD_FALLBACKS[provider] into concrete (provider, model, key,
+    endpoint) tuples, skipping definitions without an API key.
+    """
+    import time as _time  # noqa: F401  (kept for callers that may pace retries)
+    provider = payload_provider or get_llm_provider()
+    fb = _CLOUD_FALLBACKS.get(provider)
+    if not fb:
+        return []
+    fb_provider, fkey, fbase, fmodels = fb[0], fb[1], fb[2], list(fb[3:])
+    key = (_load_config().get(fkey, "") or "").strip()
+    if not key:
+        return []
+    return [
+        (fb_provider, m,
+         {"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+         f"{fbase}/chat/completions")
+        for m in fmodels
+    ]
+
+
 def detect_network_mode() -> str:
     """Return 'local' if on a private LAN (10.x, 172.16-31.x, 192.168.x), else 'remote'."""
     try:
@@ -437,6 +495,44 @@ def call_llm(
                 "content":    (msg.get("content") or "").strip(),
                 "tool_calls": tc_list,
             }
+        except requests.exceptions.HTTPError as e:
+            if getattr(getattr(e, "response", None), "status_code", None) == 429:
+                mirror_last = None
+                for fb_provider, fm, fb_headers, fb_endpoint in _mirror_candidates(provider):
+                    slim = _lighten_for_mirror(payload)
+                    slim["model"] = fm
+                    try:
+                        print(f"[LLM] {provider} 429 -> retrying via {fb_provider} ({fm})")
+                        mr = requests.post(fb_endpoint, json=slim, headers=fb_headers, timeout=timeout)
+                        mr.raise_for_status()
+                        fmsg = mr.json().get("choices", [{}])[0].get("message", {})
+                        raw  = fmsg.get("tool_calls") or []
+                        ftc  = [
+                            {
+                                "id":       t.get("id", ""),
+                                "type":     "function",
+                                "function": {
+                                    "name":      t["function"]["name"],
+                                    "arguments": (
+                                        json.dumps(t["function"]["arguments"])
+                                        if not isinstance(t["function"].get("arguments"), str)
+                                        else t["function"].get("arguments", "{}")
+                                    ),
+                                },
+                            }
+                            for t in raw
+                        ]
+                        return {
+                            "content":    (fmsg.get("content") or "").strip(),
+                            "tool_calls": ftc,
+                        }
+                    except Exception as fe:
+                        print(f"[LLM] mirror {fb_provider} ({fm}) failed: {fe}")
+                        mirror_last = fe
+                if mirror_last is None:
+                    print("[LLM] no mirror key configured for 429 fallback")
+                raise RuntimeError(f"{provider} 429 and no mirror worked: {mirror_last or e}")
+            raise RuntimeError(f"{provider} LLM call failed: {e}")
         except Exception as e:
             raise RuntimeError(f"{provider} LLM call failed: {e}")
 
@@ -714,11 +810,88 @@ def _stream_openai(
     except requests.exceptions.HTTPError as e:
         code = e.response.status_code
         body = e.response.text[:300]
-        if code in (413, 429):
-            # 413 = payload too large, 429 = rate limited — retry on Ollama
+        if code == 429 or code == 413:
+            # 429 = rate limited, 413 = payload too large (free-tier mirror
+            # buckets are small) — mirror the request across other providers.
+            import copy
+            slim = copy.deepcopy(payload)
+            if code == 413:
+                # Light mode: drop tool defs and truncate bulky context so the
+                # smaller mirror buckets still accept it.
+                slim.pop("tools", None)
+                slim.pop("tool_choice", None)
+                if slim.get("messages"):
+                    sys_idx = 0 if slim["messages"][0].get("role") == "system" else None
+                    if sys_idx is not None:
+                        slim["messages"][0]["content"] = slim["messages"][0]["content"][:4000]
+                    slim["messages"] = [
+                        {"role": m.get("role"), "content": (m.get("content") or "")[:2500]}
+                        for m in slim["messages"]
+                    ]
+            import time as _time
+
+            def _retry_wait(err) -> float:
+                """Honor provider Retry-After (capped); 0 if none."""
+                try:
+                    ra = getattr(getattr(err, "response", None), "headers", {}).get("Retry-After")
+                    if ra:
+                        return min(max(float(ra), 1.0), 30.0)
+                except Exception:
+                    pass
+                return 0.0
+
+            last_err = None
+            # 1) Mirrors — instant try, then ONE paced retry per candidate
+            # (free-tier rate windows reset within ~a minute: waiting beats
+            # failing, and falling through to a dead local Ollama never helps).
+            for fb_provider, fm, fb_headers, fb_endpoint in _mirror_candidates(provider):
+                slim = _lighten_for_mirror(payload)
+                slim["model"] = fm
+                for attempt in (1, 2):
+                    try:
+                        with requests.post(fb_endpoint, json=slim, headers=fb_headers,
+                                           timeout=timeout, stream=True) as resp2:
+                            resp2.raise_for_status()
+                            yield from _parse_sse(resp2)
+                            return
+                    except requests.exceptions.HTTPError as fe:
+                        code2 = getattr(getattr(fe, "response", None), "status_code", None)
+                        print(f"[LLM] mirror {fb_provider} ({fm}) HTTP {code2} (attempt {attempt})")
+                        last_err = fe
+                        if code2 == 413 and attempt == 1:
+                            # Still too big — halve the context and retry once.
+                            slim["messages"] = [
+                                {"role": m.get("role"), "content": (m.get("content") or "")[:1500]}
+                                for m in slim.get("messages", [])
+                            ]
+                            continue
+                        if code2 == 429 and attempt == 1:
+                            wait = _retry_wait(fe) or 12.0
+                            print(f"[LLM] rate-limited — retrying {fm} in {wait:.0f}s")
+                            _time.sleep(wait)
+                            continue
+                        break
+                    except Exception as fe:
+                        print(f"[LLM] mirror {fb_provider} ({fm}) failed: {fe}")
+                        last_err = fe
+                        break
+            # 2) One paced retry on the primary provider itself.
+            wait = _retry_wait(e) or 15.0
+            print(f"[LLM] mirrors busy — retrying {provider} ({model}) in {wait:.0f}s")
+            _time.sleep(wait)
+            try:
+                with requests.post(endpoint, json=payload, headers=headers,
+                                   timeout=timeout, stream=True) as resp2:
+                    resp2.raise_for_status()
+                    yield from _parse_sse(resp2)
+                    return
+            except Exception as fe2:
+                print(f"[LLM] {provider} retry failed: {fe2}")
+                last_err = fe2
+            # 3) Ollama last resort — ONLY if a server is actually running
+            # (1s health check; never a dead end that pretends to help).
             _fallback_ollama_url = "http://localhost:11434"
             fallback_model = "qwen2.5:0.5b"
-            import copy
             slim = copy.deepcopy(payload)
             slim.pop("tools", None)
             slim.pop("tool_choice", None)
@@ -727,40 +900,50 @@ def _stream_openai(
             slim["stream"] = True
             slim["keep_alive"] = -1
             slim["options"] = {"num_predict": 100, "num_gpu": 99, "num_thread": 4}
+            ollama_up = False
             try:
-                with requests.post(fallback_endpoint, json=slim, timeout=timeout, stream=True) as resp2:
-                    resp2.raise_for_status()
-                    full_content = ""
-                    buf = ""
-                    for raw in resp2.iter_lines():
-                        if not raw:
-                            continue
-                        try:
-                            chunk = json.loads(raw)
-                        except json.JSONDecodeError:
-                            continue
-                        msg = chunk.get("message", {})
-                        text = msg.get("content") or ""
-                        full_content += text
-                        buf += text
-                        while True:
-                            m = _SENT_END.search(buf)
-                            if not m:
-                                break
-                            sentence = buf[: m.start() + 1].strip()
-                            buf = buf[m.end():]
-                            if sentence:
-                                yield {"type": "sentence", "text": sentence}
-                        if chunk.get("done"):
-                            if buf.strip():
-                                yield {"type": "sentence", "text": buf.strip()}
-                            yield {"type": "done", "content": full_content.strip(), "tool_calls": []}
-                            return
-                    if buf.strip():
-                        yield {"type": "sentence", "text": buf.strip()}
-                    yield {"type": "done", "content": full_content.strip(), "tool_calls": []}
-            except Exception as fe:
-                raise RuntimeError(f"{provider} {code} — fallback Ollama also failed: {fe}")
+                ollama_up = requests.get(f"{_fallback_ollama_url}/api/tags", timeout=1).status_code == 200
+            except Exception:
+                ollama_up = False
+            if ollama_up:
+                try:
+                    with requests.post(fallback_endpoint, json=slim, timeout=timeout, stream=True) as resp2:
+                        resp2.raise_for_status()
+                        full_content = ""
+                        buf = ""
+                        for raw in resp2.iter_lines():
+                            if not raw:
+                                continue
+                            try:
+                                chunk = json.loads(raw)
+                            except json.JSONDecodeError:
+                                continue
+                            msg = chunk.get("message", {})
+                            text = msg.get("content") or ""
+                            full_content += text
+                            buf += text
+                            while True:
+                                m = _SENT_END.search(buf)
+                                if not m:
+                                    break
+                                sentence = buf[: m.start() + 1].strip()
+                                buf = buf[m.end():]
+                                if sentence:
+                                    yield {"type": "sentence", "text": sentence}
+                            if chunk.get("done"):
+                                if buf.strip():
+                                    yield {"type": "sentence", "text": buf.strip()}
+                                yield {"type": "done", "content": full_content.strip(), "tool_calls": []}
+                                return
+                        if buf.strip():
+                            yield {"type": "sentence", "text": buf.strip()}
+                        yield {"type": "done", "content": full_content.strip(), "tool_calls": []}
+                except Exception as fe:
+                    raise RuntimeError(f"{provider} {code} — fallback Ollama also failed: {fe}")
+            raise RuntimeError(
+                f"{provider} and all mirror providers are rate-limited right now "
+                f"(429). Not an outage — try again shortly."
+            )
             return
         raise RuntimeError(f"{provider} HTTP error: {code} — {body}")
     except Exception as e:

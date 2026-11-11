@@ -14,7 +14,12 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from google.oauth2.credentials import Credentials
+try:
+    from google.oauth2.credentials import Credentials
+    _HAS_GOOGLE_AUTH = True
+except ImportError:  # optional — Gmail/Drive tools report "sign in first"
+    Credentials = None  # type: ignore[assignment,misc]
+    _HAS_GOOGLE_AUTH = False
  
 logger = logging.getLogger("google_workspace")
 
@@ -74,6 +79,9 @@ def _load_token():
     global _creds
     if _creds:
         return _creds
+    if not _HAS_GOOGLE_AUTH:
+        logger.warning("google-auth is not installed — Google Workspace tools disabled")
+        return None
     if TOKEN_PATH.exists():
         try:
             with open(TOKEN_PATH, "r") as f:

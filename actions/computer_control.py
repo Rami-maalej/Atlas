@@ -17,13 +17,9 @@ from core.llm_client import resolve_llm_url
 
 from actions.file_controller import open_folder as _open_folder
 
-try:
-    import pyautogui
-    pyautogui.FAILSAFE = True
-    pyautogui.PAUSE    = 0.05
-    _PYAUTOGUI = True
-except Exception:
-    _PYAUTOGUI = False
+from actions._lazy_pya import LazyPya, pya_saved as _pya_saved
+
+pyautogui = LazyPya()
 
 try:
     import pyperclip
@@ -77,7 +73,7 @@ def _safe_screenshot_path(requested: str | None) -> Path:
     return fallback
 
 def _require_pyautogui():
-    if not _PYAUTOGUI:
+    if not _pya_saved():
         raise RuntimeError("PyAutoGUI not installed. Run: pip install pyautogui")
 
 _FIRST_NAMES = [

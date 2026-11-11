@@ -81,7 +81,7 @@ def test_first_olympus_identity_prompt_is_a_safe_offline_baseline() -> None:
 
     assert routed.matched is False
     assert routed.requires_ai is True
-    assert "I am JARVIS MARK XL" in reply
+    assert "I am ATLANTIS MARK XL" in reply
     assert "must not claim" in reply
     assert "confirmed tool result" in reply
 
@@ -145,7 +145,7 @@ def test_first_olympus_prompt_reaches_visible_assistant_response(monkeypatch) ->
 
     jarvis_llm._process_message(assistant, prompt)
 
-    assert assistant.spoken and assistant.spoken[0].startswith("I am JARVIS MARK XL")
-    assert any(message.startswith("Jarvis: I am JARVIS MARK XL") for message in assistant.ui.messages)
-    assert assistant._conversation[-1]["content"].startswith("I am JARVIS MARK XL")
+    assert assistant.spoken and assistant.spoken[0].startswith("I am ATLANTIS MARK XL")
+    assert any(message.startswith("Atlantis: I am ATLANTIS MARK XL") for message in assistant.ui.messages)
+    assert assistant._conversation[-1]["content"].startswith("I am ATLANTIS MARK XL")
     assert assistant.ui.states[-1] == "LISTENING"

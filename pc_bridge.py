@@ -69,6 +69,7 @@ from core.scheduler import get_scheduler
 from core.safe_math import safe_math
 from agent.agent_manager import get_agent_manager
 from skills.skill_loader import get_active_skill_context, list_skills, reload_skills
+from core.remote_api import RemoteAPIServer
 
 # ── Tool declarations (same as main.py) ──────────────────────────────────────
 
@@ -1008,6 +1009,31 @@ class BridgeServer:
                         "llm_connected": self._startup_done,
                     }))
 
+                elif msg_type == "task":
+                    # Direct task execution from the Android app — the app
+                    # sends {"type": "task", "name": ..., "args": {...}}
+                    task_name = str(data.get("name") or "").strip()
+                    task_args = data.get("args") or {}
+                    if not task_name or not isinstance(task_args, dict):
+                        await websocket.send(json.dumps({
+                            "type": "error",
+                            "text": "Task needs a name and an args object",
+                        }))
+                        continue
+                    try:
+                        result = self.jarvis._execute_tool(task_name, task_args)
+                        await websocket.send(json.dumps({
+                            "type": "task_result",
+                            "name": task_name,
+                            "result": str(result),
+                            "done": True,
+                        }))
+                    except Exception as e:
+                        await websocket.send(json.dumps({
+                            "type": "error",
+                            "text": f"Task {task_name} failed: {e}",
+                        }))
+
                 else:
                     await websocket.send(json.dumps({
                         "type": "error",
@@ -1025,6 +1051,27 @@ class BridgeServer:
         await self._init_jarvis()
         ips = get_local_ips()
 
+        # HTTP control link — phone browser or Android app over a simple URL
+        loop = asyncio.get_running_loop()
+
+        def _task_runner(name: str, args: dict) -> str:
+            return self.jarvis._execute_tool(name, args)
+
+        def _cmd_runner(text: str) -> str:
+            fut = asyncio.run_coroutine_threadsafe(
+                self.jarvis.process_text(text), loop
+            )
+            return str(fut.result(timeout=180))
+
+        try:
+            self._remote = RemoteAPIServer(
+                runner=_task_runner, command_runner=_cmd_runner
+            )
+            self._remote.start_background()
+        except Exception as e:
+            print(f"[Bridge] HTTP control link disabled: {e}")
+            self._remote = None
+
         print("=" * 56)
         print("  MARK XL — PC Bridge Server")
         print("=" * 56)
@@ -1033,12 +1080,23 @@ class BridgeServer:
         for ip in ips:
             print(f"    ws://{ip}:{self.port}")
         print()
-        print("  Scan the QR code below with your phone:")
-        print()
+        if self._remote:
+            qr_ip = next((ip for ip in ips if not ip.startswith("127.")), ips[0])
+            link = f"http://{qr_ip}:{self._remote.port}/?token={self._remote.token}"
+            print("  Phone control link (Android app / browser):")
+            print(f"    {link}")
+            print()
+            print("  Scan the QR code below with your phone:")
+            print()
+            print_qr(link)
+            print()
+        else:
+            print("  Scan the QR code below with your phone:")
+            print()
 
-        # Print QR for the first non-local IP
-        qr_ip = next((ip for ip in ips if not ip.startswith("127.")), ips[0])
-        print_qr(f"ws://{qr_ip}:{self.port}")
+        # Print QR for the first non-local IP (WebSocket)
+        qr_ws_ip = next((ip for ip in ips if not ip.startswith("127.")), ips[0])
+        print_qr(f"ws://{qr_ws_ip}:{self.port}")
         print()
         print("  Or type this IP into the MARK XL app settings.")
         print()

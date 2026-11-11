@@ -34,13 +34,13 @@ def create_document(parameters: dict, player=None) -> str:
         title   : document title (optional)
         author  : author name (optional)
         format  : "pdf" | "docx" | "both" (default: "pdf")
-        path    : optional explicit output path (default: ~/Documents/Jarvis)
+        path    : optional explicit output path (default: ~/Documents/Atlantis)
     """
     content = (parameters.get("content") or "").strip()
     if not content:
         return "What should I write? Give me the content, e.g. 'create a PDF that explains photosynthesis'."
     title = (parameters.get("title") or "").strip()
-    author = (parameters.get("author") or "Jarvis").strip()
+    author = (parameters.get("author") or "Atlantis").strip()
     fmt = (parameters.get("format") or "pdf").lower()
     fmt = "pdf" if "pdf" in fmt else ("docx" if "docx" in fmt else "both")
 

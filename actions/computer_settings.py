@@ -7,13 +7,9 @@ import subprocess
 import platform
 from pathlib import Path
 
-try:
-    import pyautogui
-    pyautogui.FAILSAFE = True
-    pyautogui.PAUSE    = 0.05
-    _PYAUTOGUI = True
-except Exception:
-    _PYAUTOGUI = False
+from actions._lazy_pya import LazyPya, pya_saved as _pya_saved
+
+pyautogui = LazyPya()
 
 try:
     import pyperclip
@@ -508,12 +504,12 @@ def toggle_wifi():
         except Exception as e:
             print(f"[Settings] toggle_wifi Linux failed: {e}")
 
-def notify(title: str = "Jarvis", message: str = "", urgency: str = "normal"):
+def notify(title: str = "Atlantis", message: str = "", urgency: str = "normal"):
     """Send a desktop notification."""
     if _OS == "Linux":
         try:
             subprocess.run(
-                ["notify-send", "-a", "Jarvis", "-u", urgency, title, message],
+                ["notify-send", "-a", "Atlantis", "-u", urgency, title, message],
                 capture_output=True, timeout=5
             )
         except FileNotFoundError:
@@ -526,7 +522,7 @@ def notify(title: str = "Jarvis", message: str = "", urgency: str = "normal"):
                     "/org/freedesktop/Notifications"
                 )
                 interface = dbus.Interface(notifications, "org.freedesktop.Notifications")
-                interface.Notify("Jarvis", 0, "", title, message, [], [], -1)
+                interface.Notify("Atlantis", 0, "", title, message, [], [], -1)
             except Exception:
                 print(f"[Settings] notify failed: no notify-send or dbus")
     elif _OS == "Darwin":
@@ -1028,7 +1024,7 @@ def computer_settings(
     player=None,
     session_memory=None,
 ) -> str:
-    if not _PYAUTOGUI:
+    if not _pya_saved():
         return "pyautogui is not installed. Run: pip install pyautogui"
 
     params      = parameters or {}
@@ -1118,7 +1114,7 @@ def computer_settings(
         return _set_language_action(lang_name or lang_code, lang_code, player)
 
     if action == "notify":
-        title = str(params.get("title", "Jarvis"))
+        title = str(params.get("title", "Atlantis"))
         message = str(value or params.get("message", ""))
         urgency = str(params.get("urgency", "normal"))
         if not message:

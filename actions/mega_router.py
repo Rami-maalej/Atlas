@@ -19,10 +19,14 @@ MEGA_INTENTS = [
     {"name": "translator", "patterns": [r"translate.*", r"traduis.*", r"comment.*dit.*on", r"traduction.*vers"]},
     {"name": "media_downloader", "patterns": [r"download.*http", r"telecharger.*http", r"save.*http", r"youtube.*download"]},
     {"name": "speedtest", "patterns": [r"speedtest", r"internet.*speed", r"vitesse.*internet", r"test.*debit", r"check.*speed"]},
-    {"name": "process_mgr", "patterns": [r"list.*processes", r"liste.*processus", r"qu.*est.*ce.*qui.*tourne", r"(kill|stop|terminer|tuer).*(process|application|app)?", r"kill.*pid"]},
+    {"name": "process_mgr", "patterns": [
+        r"list.*processes", r"liste.*processus", r"qu.*est.*ce.*qui.*tourne",
+        r"\b(kill|stop|terminer|tuer)\b.*\b(process|application|app)\b",
+        r"\bkill.*\bpid\b",
+    ]},
     {"name": "archive_tools", "patterns": [r"(archive|zip|compress|compresser)", r"(extract|unzip|decompresser|extraire)", r"create.*zip"]},
     {"name": "image_edit", "patterns": [r"resize.*image", r"redimensionner.*image", r"(grayscale|noir.*blanc)", r"(flip|mirror)"]},
-    {"name": "wiki_tools", "patterns": [r"(wikipedia|wiki|search.*wiki)", r"(who|what|qui|qu.*est.*ce.*que).*on.*wikipedia", r"wiki.*"]},
+    {"name": "wiki_tools", "patterns": [r"\b(wikipedia|wiki)\b.*", r"(who|what|qui|qu.*est.*ce.*que).*on.*wikipedia"]},
     {"name": "system_health", "patterns": [r"check.*system.*health", r"sante.*systeme", r"etat.*pc", r"how.*is.*my.*pc", r"comment.*va.*mon.*ordinateur"]},
     {"name": "news_pro", "patterns": [r"(get|show|read|affiche|donne|what.*the).*(news|actualites|latest)", r"(tech|business|science|health|sports|entertainment).*news", r"news.*for", r"quoi.*de.*neuf", r"derniere.*info"]},
     {"name": "devices_scan", "patterns": [r"what.*is.*connected", r"qu.*est.*ce.*qui.*est.*(branche|connecte)", r"connected.*devices", r"(ecrans|monitors).*connectes"]},
@@ -34,7 +38,7 @@ MEGA_INTENTS = [
     {"name": "notes_tools", "patterns": [r"(note|memorise)", r"list.*my.*notes", r"liste.*mes.*notes", r"search.*notes"]},
     {"name": "system_info_tools", "patterns": [r"(battery|batterie)", r"(wifi|reseau)", r"(disk|disque)"]},
     {"name": "screen_ocr", "patterns": [r"(what.*on|see).*my.*screen", r"qu.*y.*a.*t.*il.*sur.*mon.*ecran", r"vois.*tu.*mon.*ecran", r"is.*word.*visible", r"mot.*visible.*sur.*l.*ecran", r"(trouve|find).*mot.*sur.*mon.*ecran"]},
-    {"name": "check_crypto", "patterns": [r"(bitcoin|ethereum|crypto|btc|eth).*(price|value|cours|valeur|prix)", r"how.*much.*is.*(bitcoin|btc|eth)", r"([a-z]+).*value"]},
+    {"name": "check_crypto", "patterns": [r"(bitcoin|ethereum|crypto|btc|eth).*(price|value|cours|valeur|prix)", r"how.*much.*is.*(bitcoin|btc|eth)", r"\b([a-z]{2,12})\s+value\b"]},
     {"name": "check_time", "patterns": [r"(what.*time|quelle.*heure)", r"(time|heure).*in", r"heure.*a"]},
     {"name": "create_document", "patterns": [r"(create|make|generate|write|build|cree|genere|fais).*(pdf|word|document|docx|report|fichier)"]},
     {"name": "read_pdf", "patterns": [r"(read|lis|analyse).*pdf", r"qu.*y.*a.*t.*il.*dans.*pdf"]},
@@ -65,9 +69,17 @@ def _youtube_query(text: str) -> str:
     query = re.sub(r"\s+(?:on|in|from|at)\s+(?:youtube|yt)\s*$", "", query, flags=re.IGNORECASE)
     return query.strip() or "YouTube"
 
+# Cap the text used for pattern matching.  Unanchored regexes like
+# "([a-z]+).*value" can backtrack catastrophically on multi-kilobyte input
+# and hang the assistant; real commands are far shorter than this.
+_MAX_MATCH_LEN = 4000
+
+
 def mega_route(text):
     norm_text = normalize(text)
     if not norm_text: return None
+    if len(norm_text) > _MAX_MATCH_LEN:
+        norm_text = norm_text[:3600] + " " + norm_text[-300:]
     best_match = None
     best_score = 0
     

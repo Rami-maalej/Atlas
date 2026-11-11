@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>JARVIS Test Matrix</title>
+<title>ATLANTIS Test Matrix</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -447,7 +447,7 @@ header h1 {
 <body>
 
 <header>
-  <h1>JARVIS Test Matrix</h1>
+  <h1>ATLANTIS Test Matrix</h1>
   <div class="header-stats">
     <span class="count-checked" id="checkedCount">0</span>
     <span class="count-total" id="totalCount">0</span>
@@ -556,7 +556,7 @@ const QUESTIONS = [
   { cat: "System & Computer", tag: "package_manager", q: "List all installed packages" },
   { cat: "System & Computer", tag: "package_manager", q: "Update all packages" },
   { cat: "System & Computer", tag: "package_manager", q: "Detect my OS package manager" },
-  { cat: "System & Computer", tag: "shutdown", q: "Goodbye Jarvis" },
+  { cat: "System & Computer", tag: "shutdown", q: "Goodbye Atlantis" },
   { cat: "System & Computer", tag: "shutdown", q: "Shut yourself down" },
   { cat: "System & Computer", tag: "shutdown", q: "I'm done, see you later" },
   { cat: "System & Computer", tag: "shutdown", q: "Close the assistant" },
@@ -651,7 +651,7 @@ const QUESTIONS = [
   { cat: "Communication", tag: "voice_calls", q: "Make a voice call to Mom" },
   { cat: "Communication", tag: "voice_calls", q: "Start a voice call with the team" },
   { cat: "Communication", tag: "federation", q: "Sync this memory across all instances" },
-  { cat: "Communication", tag: "federation", q: "Share this context with other Jarvis instances" },
+  { cat: "Communication", tag: "federation", q: "Share this context with other Atlantis instances" },
   { cat: "Communication", tag: "federation", q: "Distribute this information across the network" },
   { cat: "Communication", tag: "context_bus", q: "Get the current context from the bus" },
   { cat: "Communication", tag: "context_bus", q: "Share my current context with another app" },
@@ -936,7 +936,7 @@ const QUESTIONS = [
   { cat: "Skills", tag: "project_creator", q: "Scaffold a machine learning project" },
   { cat: "Skills", tag: "project_creator", q: "Set up a full-stack project with best practices" },
   { cat: "General Chat", tag: "greeting", q: "Hello" },
-  { cat: "General Chat", tag: "greeting", q: "Hi Jarvis" },
+  { cat: "General Chat", tag: "greeting", q: "Hi Atlantis" },
   { cat: "General Chat", tag: "greeting", q: "Good morning" },
   { cat: "General Chat", tag: "greeting", q: "Hey, what's up?" },
   { cat: "General Chat", tag: "greeting", q: "How are you?" },
@@ -947,7 +947,7 @@ const QUESTIONS = [
   { cat: "General Chat", tag: "general", q: "Who created you?" },
   { cat: "General Chat", tag: "general", q: "What is your name?" },
   { cat: "General Chat", tag: "general", q: "What's your purpose?" },
-  { cat: "General Chat", tag: "general", q: "Are you Jarvis?" },
+  { cat: "General Chat", tag: "general", q: "Are you Atlantis?" },
   { cat: "General Chat", tag: "general", q: "Tell me about yourself" },
   { cat: "General Chat", tag: "general", q: "What is the meaning of life?" },
   { cat: "Remote & Monitoring", tag: "remote", q: "Start the remote API server" },
@@ -1138,7 +1138,7 @@ const QUESTIONS = [
   { cat: "System & Computer", tag: "package_manager", q: "Audit packages for vulnerabilities" },
   { cat: "System & Computer", tag: "package_manager", q: "Show package dependency tree" },
   { cat: "System & Computer", tag: "shutdown", q: "Exit the application" },
-  { cat: "System & Computer", tag: "shutdown", q: "Goodnight Jarvis" },
+  { cat: "System & Computer", tag: "shutdown", q: "Goodnight Atlantis" },
   { cat: "System & Computer", tag: "shutdown", q: "I'm signing off" },
   { cat: "System & Computer", tag: "shutdown", q: "Turn off the assistant" },
   { cat: "System & Computer", tag: "shutdown", q: "Restart yourself" },
@@ -1546,11 +1546,11 @@ function saveState() {
   document.querySelectorAll('input[type="checkbox"]:checked').forEach(cb => {
     checked.push(parseInt(cb.dataset.id));
   });
-  localStorage.setItem('jarvis_test_checked', JSON.stringify(checked));
+  localStorage.setItem('atlantis_test_checked', JSON.stringify(checked));
 }
 
 function loadState() {
-  const saved = localStorage.getItem('jarvis_test_checked');
+  const saved = localStorage.getItem('atlantis_test_checked');
   if (!saved) return;
   const ids = JSON.parse(saved);
   ids.forEach(id => {
@@ -1591,7 +1591,7 @@ function exportChecked() {
     if (q) checked.push(`[${q.cat}] ${q.q}`);
   });
   const text = checked.length
-    ? `JARVIS Test Results (${checked.length}/${QUESTIONS.length} completed)\n${'='.repeat(50)}\n\n` + checked.join('\n')
+    ? `ATLANTIS Test Results (${checked.length}/${QUESTIONS.length} completed)\n${'='.repeat(50)}\n\n` + checked.join('\n')
     : 'No questions checked yet.';
   document.getElementById('exportText').value = text;
   document.getElementById('exportModal').classList.add('active');

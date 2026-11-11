@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>JARVIS — Mark XL · Documentation complète</title>
+<title>ATLANTIS — Mark XL · Documentation complète</title>
 <style>
   /* ══════════════════════════════════════════════════════════════
      DESIGN FLAT — zéro border-radius, hiérarchie claire, contrasté
@@ -159,7 +159,7 @@
 <body>
 
 <aside>
-  <h1>JARVIS · DOC</h1>
+  <h1>ATLANTIS · DOC</h1>
   <nav>
     <a href="#intro">Vue d'ensemble</a>
     <div class="sec">Installation</div>
@@ -193,7 +193,7 @@
   <div class="hero">
     <div class="hero-inner">
       <div class="hero-text">
-        <h1>JARVIS — MARK XL</h1>
+        <h1>ATLANTIS — MARK XL</h1>
         <div class="sub">Assistant IA local vocal · PyQt6 · Ollama / Groq / NVIDIA / OpenRouter / OpenAI · Automatisation complète du poste de travail</div>
         <div style="margin-top:14px">
           <span class="badge">Python 3.10+</span>
@@ -222,7 +222,7 @@
     <div class="tile"><div class="num">0</div><div class="lbl">border-radius (flat)</div></div>
   </div>
 
-  <p><strong>JARVIS</strong> est un assistant IA vocal de bureau : il écoute, comprend, répond et <em>agit</em> sur l'ordinateur (ouvrir des applications, contrôler le navigateur, gérer les fichiers, lire les e-mails, piloter les capteurs, écrire du code, etc.). Depuis la refonte <strong>Mark XL</strong>, chaque micro-fonctionnalité vit dans son propre fichier, le lanceur fait 115 lignes, la mémoire est épaisodique comme celle d'un humain, et le design de l'interface est volontairement <strong>flat</strong> — aucun arrondi, aucune ombre, aucun widget inutile — pour une clarté maximale.</p>
+  <p><strong>ATLANTIS</strong> est un assistant IA vocal de bureau : il écoute, comprend, répond et <em>agit</em> sur l'ordinateur (ouvrir des applications, contrôler le navigateur, gérer les fichiers, lire les e-mails, piloter les capteurs, écrire du code, etc.). Depuis la refonte <strong>Mark XL</strong>, chaque micro-fonctionnalité vit dans son propre fichier, le lanceur fait 115 lignes, la mémoire est épaisodique comme celle d'un humain, et le design de l'interface est volontairement <strong>flat</strong> — aucun arrondi, aucune ombre, aucun widget inutile — pour une clarté maximale.</p>
 
   <div class="callout ok"><b>EN BREF</b>Un seul fichier à lancer : <code>python main.py</code>. Tout le reste s'organise automatiquement : détection du fournisseur LLM disponible, chargement des modèles, initialisation de la mémoire, démarrage de l'interface.</div>
 </section>
@@ -313,7 +313,7 @@
   <h2>1 · Mise à jour et lancement sur votre PC</h2>
   <p>Le dépôt GitHub est <code>Ramimaalej/RamiMirekJarvisProject</code>. Sur votre machine :</p>
   <pre><code># 1. Récupérer les dernières modifications
-cd C:\Users\VotreNom\J Jarvis        # ou le dossier où vous avez cloné
+cd C:\Users\VotreNom\J Atlantis        # ou le dossier où vous avez cloné
 git pull
 
 # 2. Installer les dépendances (première fois, ou si requirements.txt a changé)
@@ -325,28 +325,28 @@ playwright install chromium
 # 4. (Recommandé) Avoir Ollama installé et tournant : https://ollama.com
 ollama serve
 
-# 5. Lancer Jarvis
+# 5. Lancer Atlantis
 python main.py</code></pre>
   <div class="callout warn"><b>PREMIER LANCEMENT</b>main.py installe automatiquement les paquets manquants. Si votre environnement est propre, une simple commande suffit : <code>python main.py</code>.</div>
   <p>Pour une mise à jour sans Git (dossier copié à la main), il suffit de remplacer le dossier du projet par la nouvelle version, puis de relancer <code>pip install -r requirements.txt</code> et <code>python main.py</code>. Vos fichiers <code>memory/*.json</code> et <code>config/api_keys.json</code> sont conservés — rien n'est perdu.</p>
   <h3>Structure du dépôt</h3>
-  <pre><code>JarvisProject/
+  <pre><code>AtlantisProject/
 ├── main.py                  ← lanceur minimal (115 lignes)
 ├── main.py.bak4000          ← sauvegarde de l'ancien main.py monolithique
 ├── ui.py                    ← interface PyQt6 (design flat)
 ├── config/
 │   └── api_keys.json        ← fournisseur LLM + clés API
-├── core/                    ← cerveau de Jarvis
-│   ├── jarvis_core.py       ← orchestrateur principal
-│   ├── jarvis_llm.py        ← boucle LLM + outils
-│   ├── jarvis_memory.py     ← mémoire épaisodique humaine
-│   ├── jarvis_general.py    ← réponses générales éclair
-│   ├── jarvis_prompt.py     ← prompt système
-│   ├── jarvis_config.py     ← gestion config
-│   ├── jarvis_stt.py        ← reconnaissance vocale (Whisper/Vosk)
-│   ├── jarvis_tts.py        ← synthèse vocale
-│   ├── jarvis_utils.py      ← utilitaires
-│   ├── jarvis_script_lang.py← langage de scripts
+├── core/                    ← cerveau de Atlantis
+│   ├── atlantis_core.py       ← orchestrateur principal
+│   ├── atlantis_llm.py        ← boucle LLM + outils
+│   ├── atlantis_memory.py     ← mémoire épaisodique humaine
+│   ├── atlantis_general.py    ← réponses générales éclair
+│   ├── atlantis_prompt.py     ← prompt système
+│   ├── atlantis_config.py     ← gestion config
+│   ├── atlantis_stt.py        ← reconnaissance vocale (Whisper/Vosk)
+│   ├── atlantis_tts.py        ← synthèse vocale
+│   ├── atlantis_utils.py      ← utilitaires
+│   ├── atlantis_script_lang.py← langage de scripts
 │   ├── llm_provider_detector.py ← détection auto des fournisseurs
 │   ├── provider_overlay.py  ← écran de choix du fournisseur
 │   ├── ollama_models.py     ← gestion des modèles Ollama
@@ -366,7 +366,7 @@ python main.py</code></pre>
 
 <section id="config">
   <h2>2 · Configuration — config/api_keys.json</h2>
-  <p>Le fichier central de configuration. Jarvis détecte automatiquement les fournisseurs disponibles (Ollama en local, Groq, NVIDIA NIM, OpenRouter, OpenAI) mais vous pouvez forcer le choix :</p>
+  <p>Le fichier central de configuration. Atlantis détecte automatiquement les fournisseurs disponibles (Ollama en local, Groq, NVIDIA NIM, OpenRouter, OpenAI) mais vous pouvez forcer le choix :</p>
   <pre><code>{
   "llm_provider": "ollama",      // ollama | groq | nvidia | openrouter | openai
   "llm_model":    "qwen3:4b",    // modèle utilisé par défaut
@@ -387,13 +387,13 @@ python main.py</code></pre>
     <div class="arrow">▼</div>
     <div class="row">
       <div class="box">ui.py<br>interface PyQt6 flat</div>
-      <div class="box">core/jarvis_core.py<br>orchestrateur</div>
+      <div class="box">core/atlantis_core.py<br>orchestrateur</div>
     </div>
     <div class="arrow">▼ ▼</div>
     <div class="row">
-      <div class="box ok">core/jarvis_stt.py<br>écoute (Whisper / Vosk)</div>
-      <div class="box ok">core/jarvis_llm.py<br>compréhension + outils</div>
-      <div class="box ok">core/jarvis_tts.py<br>parole (pyttsx3 / edge-tts)</div>
+      <div class="box ok">core/atlantis_stt.py<br>écoute (Whisper / Vosk)</div>
+      <div class="box ok">core/atlantis_llm.py<br>compréhension + outils</div>
+      <div class="box ok">core/atlantis_tts.py<br>parole (pyttsx3 / edge-tts)</div>
     </div>
     <div class="arrow">▼</div>
     <div class="row">
@@ -403,7 +403,7 @@ python main.py</code></pre>
     </div>
     <div class="arrow">▼</div>
     <div class="row">
-      <div class="box">core/jarvis_memory.py<br>mémoire épaisodique</div>
+      <div class="box">core/atlantis_memory.py<br>mémoire épaisodique</div>
       <div class="box">memory/*.json<br>persistance disque</div>
       <div class="box">core/fast_browser.py<br>CDP / Playwright</div>
     </div>
@@ -416,37 +416,37 @@ python main.py</code></pre>
   <p>L'ancien <code>main.py</code> faisait 4 003 lignes : toute la logique y était entassée. Il est maintenant réduit à son strict minimum :</p>
   <ul>
     <li><strong>Bootstrap</strong> : ajout du chemin du projet, variables d'environnement, installation automatique des dépendances.</li>
-    <li><strong>Imports</strong> : <code>JarvisLocal</code> (cerveau) et <code>MainWindow</code> (interface).</li>
-    <li><strong>main()</strong> : crée l'application Qt, instancie Jarvis, branche l'interface, lance la boucle événementielle.</li>
+    <li><strong>Imports</strong> : <code>AtlantisLocal</code> (cerveau) et <code>MainWindow</code> (interface).</li>
+    <li><strong>main()</strong> : crée l'application Qt, instancie Atlantis, branche l'interface, lance la boucle événementielle.</li>
   </ul>
   <pre><code># Extrait de main.py — la seule chose qui compte
 def main():
     setup_environment()      # paths, env vars
     bootstrap()              # dépendances auto-installées
     from ui import MainWindow
-    from core.jarvis_core import JarvisLocal
-    jarvis = JarvisLocal()
+    from core.atlantis_core import AtlantisLocal
+    atlantis = AtlantisLocal()
     app    = QApplication(sys.argv)
-    win    = MainWindow(jarvis=jarvis)
+    win    = MainWindow(atlantis=atlantis)
     win.show()
     sys.exit(app.exec())</code></pre>
-  <div class="callout"><b>POURQUOI C'EST MIEUX</b>Chaque modification est désormais localisée : la synthèse vocale est dans <code>jarvis_tts.py</code>, la mémoire dans <code>jarvis_memory.py</code>, le navigateur dans <code>fast_browser.py</code>. Plus de fichier de 4 000 lignes où toucher à une ligne risquait de tout casser.</div>
+  <div class="callout"><b>POURQUOI C'EST MIEUX</b>Chaque modification est désormais localisée : la synthèse vocale est dans <code>atlantis_tts.py</code>, la mémoire dans <code>atlantis_memory.py</code>, le navigateur dans <code>fast_browser.py</code>. Plus de fichier de 4 000 lignes où toucher à une ligne risquait de tout casser.</div>
 </section>
 
 <section id="core">
   <h2>5 · Modules core/ — le cerveau</h2>
   <table>
     <tr><th>Fichier</th><th>Rôle</th><th>~lignes</th></tr>
-    <tr><td><code>jarvis_core.py</code></td><td>Orchestrateur : assemble STT, LLM, TTS, mémoire, outils</td><td>287</td></tr>
-    <tr><td><code>jarvis_llm.py</code></td><td>Boucle de génération, appels d'outils, chemin rapide des questions générales</td><td>369</td></tr>
-    <tr><td><code>jarvis_memory.py</code></td><td>Mémoire épaisodique humaine (enregistrement, rappel, mise à jour)</td><td>165</td></tr>
-    <tr><td><code>jarvis_general.py</code></td><td>Détection des questions générales + réponse via le modèle le plus rapide</td><td>93</td></tr>
-    <tr><td><code>jarvis_prompt.py</code></td><td>Prompt système + injection du contexte mémoire</td><td>114</td></tr>
-    <tr><td><code>jarvis_config.py</code></td><td>Lecture/écriture de <code>config/api_keys.json</code></td><td>85</td></tr>
-    <tr><td><code>jarvis_stt.py</code></td><td>Reconnaissance vocale : Whisper (précis) + Vosk (temps réel)</td><td>126</td></tr>
-    <tr><td><code>jarvis_tts.py</code></td><td>Synthèse vocale : pyttsx3 (hors-ligne) / edge-tts (en ligne)</td><td>49</td></tr>
-    <tr><td><code>jarvis_utils.py</code></td><td>Utilitaires partagés (logs, formatage, timing)</td><td>159</td></tr>
-    <tr><td><code>jarvis_script_lang.py</code></td><td>Mini-langage de scripts pour automatiser des séquences</td><td>48</td></tr>
+    <tr><td><code>atlantis_core.py</code></td><td>Orchestrateur : assemble STT, LLM, TTS, mémoire, outils</td><td>287</td></tr>
+    <tr><td><code>atlantis_llm.py</code></td><td>Boucle de génération, appels d'outils, chemin rapide des questions générales</td><td>369</td></tr>
+    <tr><td><code>atlantis_memory.py</code></td><td>Mémoire épaisodique humaine (enregistrement, rappel, mise à jour)</td><td>165</td></tr>
+    <tr><td><code>atlantis_general.py</code></td><td>Détection des questions générales + réponse via le modèle le plus rapide</td><td>93</td></tr>
+    <tr><td><code>atlantis_prompt.py</code></td><td>Prompt système + injection du contexte mémoire</td><td>114</td></tr>
+    <tr><td><code>atlantis_config.py</code></td><td>Lecture/écriture de <code>config/api_keys.json</code></td><td>85</td></tr>
+    <tr><td><code>atlantis_stt.py</code></td><td>Reconnaissance vocale : Whisper (précis) + Vosk (temps réel)</td><td>126</td></tr>
+    <tr><td><code>atlantis_tts.py</code></td><td>Synthèse vocale : pyttsx3 (hors-ligne) / edge-tts (en ligne)</td><td>49</td></tr>
+    <tr><td><code>atlantis_utils.py</code></td><td>Utilitaires partagés (logs, formatage, timing)</td><td>159</td></tr>
+    <tr><td><code>atlantis_script_lang.py</code></td><td>Mini-langage de scripts pour automatiser des séquences</td><td>48</td></tr>
     <tr><td><code>llm_provider_detector.py</code></td><td>Détection automatique : Ollama, Groq, NVIDIA, OpenRouter, OpenAI</td><td>278</td></tr>
     <tr><td><code>provider_overlay.py</code></td><td>Écran de choix du fournisseur + du modèle</td><td>439</td></tr>
     <tr><td><code>ollama_models.py</code></td><td>API de gestion des modèles Ollama (liste, pull, delete)</td><td>170</td></tr>
@@ -479,7 +479,7 @@ def main():
 <section id="actions">
   <h2>7 · Actions — actions/*.py</h2>
   <p>Chaque capacité concrète est un fichier isolé. Exemple : <code>actions/weather_report.py</code> expose <code>weather_action(parameters, player)</code> et ne sait rien du reste du système. Cela rend les actions testables unitairement, remplaçables, et permet à plusieurs personnes de travailler dessus sans conflit Git.</p>
-  <p>La convention : <code>def nom_action(parameters: dict, player=None, speak=None) -> str</code> — retourne toujours une chaîne lisible que Jarvis peut prononcer.</p>
+  <p>La convention : <code>def nom_action(parameters: dict, player=None, speak=None) -> str</code> — retourne toujours une chaîne lisible que Atlantis peut prononcer.</p>
 </section>
 
 <!-- ══════════════════════ NOUVELLES FONCTIONNALITÉS ══════════════════════ -->
@@ -509,7 +509,7 @@ def main():
   <h2>10 · Navigateur ultra-rapide (nouveau)</h2>
   <p><code>core/fast_browser.py</code> + l'action <code>actions/fast_browser.py</code> remplacent l'ancien pilotage lent :</p>
   <ul>
-    <li><strong>CDP (Chrome DevTools Protocol)</strong> : Jarvis se connecte directement à votre navigateur Chrome/Edge déjà ouvert, sans le relancer — zéro temps de démarrage.</li>
+    <li><strong>CDP (Chrome DevTools Protocol)</strong> : Atlantis se connecte directement à votre navigateur Chrome/Edge déjà ouvert, sans le relancer — zéro temps de démarrage.</li>
     <li><strong>Playwright</strong> en secours si aucun navigateur n'est trouvé.</li>
     <li>Opérations : ouvrir une URL, cliquer, remplir un formulaire, extraire le texte de la page, capturer la page, naviguer (retour, recharger, nouvel onglet).</li>
     <li>Routé par l'intention <code>fast_browser</code> (priorité haute) : « ouvre youtube.com », « clique sur le premier résultat », « prends une capture d'écran ».</li>
@@ -521,7 +521,7 @@ FastBrowser.attach_cdp("http://localhost:9222")</code></pre>
 
 <section id="memory">
   <h2>11 · Mémoire humaine — épaisodique (nouveau)</h2>
-  <p><code>core/jarvis_memory.py</code> implémente une mémoire en trois couches, comme un humain :</p>
+  <p><code>core/atlantis_memory.py</code> implémente une mémoire en trois couches, comme un humain :</p>
   <table>
     <tr><th>Couche</th><th>Analogie humaine</th><th>Stockage</th></tr>
     <tr><td><strong>Épaisodique</strong></td><td>« Je me souviens de ce qui s'est passé » — chaque interaction marquante devient un épisode daté</td><td><code>memory/episodes.json</code> (1 500 derniers épisodes, rolling)</td></tr>
@@ -529,12 +529,12 @@ FastBrowser.attach_cdp("http://localhost:9222")</code></pre>
     <tr><td><strong>Explicite</strong></td><td>« Tu m'as dit de… » — notes et instructions directes (save_memory)</td><td><code>memory/*.json</code> via update_memory</td></tr>
   </table>
   <p>Fonctions clés : <code>record_episode()</code> (nouvel épisode), <code>update_last_episode()</code> (enrichit l'épisode en cours — plus besoin de parler d'une traite), <code>format_episode_recall()</code> et <code>format_human_recall()</code> (formulent le rappel en langage naturel pour le prompt). Un verrou réentrant (<code>RLock</code>) garantit qu'aucun interblocage n'est possible lors des enregistrements simultanés.</p>
-  <div class="callout"><b>EXEMPLE</b>Vous dites « mon rendez-vous avec Sarah est à 15h ». Jarvis crée un épisode. Le lendemain : « qu'est-ce que j'avais prévu aujourd'hui ? » — il répond à partir de ses épisodes, pas d'une base de données morte.</div>
+  <div class="callout"><b>EXEMPLE</b>Vous dites « mon rendez-vous avec Sarah est à 15h ». Atlantis crée un épisode. Le lendemain : « qu'est-ce que j'avais prévu aujourd'hui ? » — il répond à partir de ses épisodes, pas d'une base de données morte.</div>
 </section>
 
 <section id="fast">
   <h2>12 · Réponses générales éclair (nouveau)</h2>
-  <p><code>core/jarvis_general.py</code> détecte les questions de culture générale (<em>« Qui a gagné le Nobel de physique en 2023 ? »</em>, <em>« Capitale de l'Australie ? »</em>) et les route vers le <strong>modèle le plus rapide disponible</strong> (ex. un petit modèle local ou Groq) au lieu du modèle principal plus lent.</p>
+  <p><code>core/atlantis_general.py</code> détecte les questions de culture générale (<em>« Qui a gagné le Nobel de physique en 2023 ? »</em>, <em>« Capitale de l'Australie ? »</em>) et les route vers le <strong>modèle le plus rapide disponible</strong> (ex. un petit modèle local ou Groq) au lieu du modèle principal plus lent.</p>
   <ul>
     <li><code>is_general_question(text)</code> — classification par mots-clés + heuristique (questions courtes, sans verbe d'action sur l'ordinateur).</li>
     <li><code>ask_general(text)</code> — interroge le backend le plus rapide, cache la réponse 24h dans <code>memory/general_cache.json</code>.</li>
@@ -557,7 +557,7 @@ FastBrowser.attach_cdp("http://localhost:9222")</code></pre>
 <section id="usage">
   <h2>14 · Utilisation — exemples</h2>
   <table>
-    <tr><th>Vous dites</th><th>Ce que Jarvis fait</th></tr>
+    <tr><th>Vous dites</th><th>Ce que Atlantis fait</th></tr>
     <tr><td>« Ouvre Spotify »</td><td><code>open_app</code> — lance l'application</td></tr>
     <tr><td>« Météo à Tunis »</td><td><code>weather_report</code> — géocode + API météo</td></tr>
     <tr><td>« Ouvre google.com »</td><td><code>fast_browser</code> — attache CDP, ouvre l'URL</td></tr>
@@ -583,10 +583,10 @@ FastBrowser.attach_cdp("http://localhost:9222")</code></pre>
 <!-- ══════════════════════ ROADMAP ══════════════════════ -->
 <section id="roadmap">
   <h2>16 · Roadmap — 100 fonctionnalités à venir</h2>
-  <p>Voici les 100 prochaines fonctionnalités prévues pour JARVIS, classées par domaine :</p>
+  <p>Voici les 100 prochaines fonctionnalités prévues pour ATLANTIS, classées par domaine :</p>
   <h3>Vocal &amp; Conversation (1–10)</h3>
   <ol class="roadmap" start="1">
-    <li>Wake word multilingue (« Jarvis » dans 5 langues)</li>
+    <li>Wake word multilingue (« Atlantis » dans 5 langues)</li>
     <li>Interruptibilité vocale (barge-in : couper la parole en parlant)</li>
     <li>Détection de l'humeur dans la voix (colère, joie, fatigue)</li>
     <li>Voix clone custom (TTS clonée sur votre voix)</li>
@@ -607,7 +607,7 @@ FastBrowser.attach_cdp("http://localhost:9222")</code></pre>
     <li>Journal de bord automatique (résumé de journée à 22h)</li>
     <li>Anniversaires et événements récurrents appris</li>
     <li>Préférences déduites (« il préfère… ») sans le demander</li>
-    <li>Fédération mémoire entre plusieurs PCs Jarvis</li>
+    <li>Fédération mémoire entre plusieurs PCs Atlantis</li>
     <li>Export / import de mémoire (sauvegarde cloud chiffrée)</li>
     <li>Souvenirs verrouillés (« ne jamais oublier X »)</li>
     <li>Mémoire de projet (contexte par dossier de travail)</li>
@@ -626,7 +626,7 @@ FastBrowser.attach_cdp("http://localhost:9222")</code></pre>
     <li>Comparateur de produits autonome</li>
     <li>Téléchargement groupé (PDF, images, vidéos)</li>
     <li>Gestionnaire de cookies et de mots de passe local</li>
-    <li>Mode navigation privée orchestré par Jarvis</li>
+    <li>Mode navigation privée orchestré par Atlantis</li>
     <li>Scraping structuré → tableau Excel auto</li>
     <li>Alerte en temps réel sur modifications de pages</li>
     <li>Formulaires CAPTCHA assistés (notification humaine)</li>
@@ -658,7 +658,7 @@ FastBrowser.attach_cdp("http://localhost:9222")</code></pre>
     <li>Vision multimodale native (comprendre vidéos en streaming)</li>
     <li>Génération d'images récurrente (séries cohérentes)</li>
     <li>Mode agent long-horizon (tâches de plusieurs heures)</li>
-    <li>Auto-réflexion : Jarvis évalue la qualité de ses réponses</li>
+    <li>Auto-réflexion : Atlantis évalue la qualité de ses réponses</li>
     <li>Benchmark automatique de modèles (votre PC, vos cas)</li>
     <li>Spéculative decoding accéléré</li>
     <li>Contexte hors-mémoire (fichiers mappés mmap)</li>
@@ -673,8 +673,8 @@ FastBrowser.attach_cdp("http://localhost:9222")</code></pre>
   <ol class="roadmap" start="71">
     <li>Monitoring hardware vocal (« température GPU ? »)</li>
     <li>Gestionnaire de processus par voix (tuer, prioriser)</li>
-    <li>Contrôle distant sécurisé (téléphone → PC Jarvis)</li>
-    <li>Synchronisation entre plusieurs machines Jarvis</li>
+    <li>Contrôle distant sécurisé (téléphone → PC Atlantis)</li>
+    <li>Synchronisation entre plusieurs machines Atlantis</li>
     <li>Détection d'intrusion réseau simplifiée</li>
     <li>Pare-feu applicatif piloté par voix</li>
     <li>Automatisation SSH vers vos serveurs</li>
@@ -682,7 +682,7 @@ FastBrowser.attach_cdp("http://localhost:9222")</code></pre>
     <li>Git assistant complet (commit, PR, review vocale)</li>
     <li>Déploiement vocal (pousse le projet en production)</li>
     <li>CI/CD déclenchée par la voix</li>
-    <li>Mode serveur headless (Jarvis sans UI, accessible par API)</li>
+    <li>Mode serveur headless (Atlantis sans UI, accessible par API)</li>
   </ol>
   <h3>Vie quotidienne (83–92)</h3>
   <ol class="roadmap" start="83">
@@ -703,18 +703,18 @@ FastBrowser.attach_cdp("http://localhost:9222")</code></pre>
     <li>Éditeur de workflows visuel (no-code)</li>
     <li>Application mobile compagnon (iOS/Android)</li>
     <li>API REST/WebSocket complète pour développeurs</li>
-    <li>Webhooks entrants ( Jarvis réagit aux événements externes )</li>
+    <li>Webhooks entrants ( Atlantis réagit aux événements externes )</li>
     <li>Mode pair-programming (partage d'écran + suggestions)</li>
     <li>Tests d'intégration E2E automatisés sur CI GitHub</li>
     <li>Documentation auto-générée des actions (par le LLM lui-même)</li>
     <li>Installateur Windows one-click (.msi)</li>
-    <li>Jarvis en mode always-on à faible consommation (idle &lt; 1 % CPU)</li>
+    <li>Atlantis en mode always-on à faible consommation (idle &lt; 1 % CPU)</li>
   </ol>
   <div class="callout"><b>CETTE LISTE ÉVOLUE</b>La roadmap est vivante : chaque fonctionnalité implémentée sera cochée et de nouvelles s'ajouteront selon vos retours.</div>
 </section>
 
 <footer style="border-top:1px solid var(--line); margin-top:60px; padding-top:18px; color:var(--muted); font-size:13px;">
-  JARVIS — Mark XL · Documentation flat design · Refactor modulaire 2026 · Dépôt : Ramimaalej/RamiMirekJarvisProject
+  ATLANTIS — Mark XL · Documentation flat design · Refactor modulaire 2026 · Dépôt : Ramimaalej/RamiMirekJarvisProject
 </footer>
 
 </main>

@@ -1019,15 +1019,16 @@ TOOL_DECLARATIONS = [
     },
     {
         "name": "obsidian",
-        "description": "Obsidian vault integration. Save ideas as notes, search existing notes, list notes by folder, create knowledge graph (wiki-link relationships), or set vault path. Set OBSIDIAN_VAULT env var.",
+        "description": "Obsidian vault (long-term memory). Read a note in full, search notes, save a new note into a domain folder, list notes, get the knowledge graph, or set vault path. Vault is already configured — never need set_vault.",
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "action":    {"type": "STRING", "description": "save | search | list | graph | tags | set_vault"},
-                "title":     {"type": "STRING", "description": "Note title for save action"},
+                "action":    {"type": "STRING", "description": "read | save | search | list | graph | tags | set_vault"},
+                "action_note": {"type": "STRING", "description": "Note title to read (for the read action)"},
+                "title":     {"type": "STRING", "description": "Note title (for save, or read when no action_note)"},
                 "content":   {"type": "STRING", "description": "Note content for save action"},
                 "query":     {"type": "STRING", "description": "Search query for search action"},
-                "folder":    {"type": "STRING", "description": "Subfolder within JARVIS/ for save/list"},
+                "folder":    {"type": "STRING", "description": "Domain folder within the vault for save/list (People, Facts, Projects, Skills, Goals, Health, Learning, Travel, Tastes, Values, Routine, Career, Finance, Journal, Media, Memories, Quotes, Setup)"},
                 "max_results":{"type": "INTEGER", "description": "Max results (default: 10)"},
                 "vault_path":{"type": "STRING", "description": "Path to Obsidian vault root (for set_vault)"}
             },
@@ -1319,6 +1320,29 @@ TOOL_DECLARATIONS = [
                 "limit":  {"type": "INTEGER", "description": "Max emails to return (default 10)"}
             },
             "required": []
+        }
+    },
+    {
+        "name": "open_mail_screen",
+        "description": "Opens the Gmail-style mail screen in the desktop UI. Use for: open my mail, show my inbox screen, open the email screen, read my mails on screen.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {},
+            "required": []
+        }
+    },
+    {
+        "name": "type_safe_decide",
+        "description": "Fast typed decision using TypeSafe AI's Jev model: returns a typed answer (choice or yes/no) with calibrated confidence in ~100ms. Use for routing, classification, safety checks, urgency scoring — when a fast confident decision is needed instead of prose. Requires a TypeSafe API key.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "question": {"type": "STRING", "description": "The decision to make"},
+                "options":  {"type": "ARRAY", "items": {"type": "STRING"},
+                             "description": "Choice options; omit for a yes/no question"},
+                "state":    {"type": "STRING", "description": "Extra context/text to judge (defaults to the question)"}
+            },
+            "required": ["question"]
         }
     },
     {

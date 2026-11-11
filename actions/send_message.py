@@ -4,13 +4,9 @@ import sys
 import time
 from pathlib import Path
 
-try:
-    import pyautogui
-    pyautogui.FAILSAFE = True
-    pyautogui.PAUSE    = 0.06
-    _PYAUTOGUI = True
-except Exception:
-    _PYAUTOGUI = False
+from actions._lazy_pya import LazyPya, pya_saved as _pya_saved
+
+pyautogui = LazyPya()
 
 try:
     import pyperclip
@@ -34,7 +30,7 @@ def _get_os() -> str:
 
 
 def _require_pyautogui():
-    if not _PYAUTOGUI:
+    if not _pya_saved():
         raise RuntimeError("PyAutoGUI not installed. Run: pip install pyautogui")
 
 
@@ -256,7 +252,7 @@ def send_message(
         return "Please specify a recipient."
     if not message_text:
         return "Please specify the message content."
-    if not _PYAUTOGUI:
+    if not _pya_saved():
         return "PyAutoGUI is not installed — cannot control the desktop."
 
     preview = message_text[:50] + ("…" if len(message_text) > 50 else "")

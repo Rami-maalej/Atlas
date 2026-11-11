@@ -1,0 +1,40 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+exclude = [
+    "android-app",
+    "main.py.bak4000",
+    "scripts",
+    "actions/realtime_tutor/frontend",
+    ".venv",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+exclude = "android-app|main\\.py\\.bak4000|scripts"
+
+[[tool.mypy.overrides]]
+module = [
+    "core.mail_client",
+    "core.decision_engine",
+    "core.remote_api",
+]
+disallow_untyped_defs = true
+disallow_any_generics = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "qt: requires PyQt6 (runs offscreen)",
+    "network: needs internet access",
+    "slow: takes more than a few seconds",
+]

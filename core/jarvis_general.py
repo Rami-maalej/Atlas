@@ -41,10 +41,23 @@ _TASK_WORDS = (
 )
 
 _FAST_SYSTEM = (
-    "You are JARVIS. Answer the user's general-knowledge question directly, "
-    "concisely and accurately in at most 2 sentences. Do not ask questions. "
-    "If unsure, say so briefly."
+    "You are Atlantis, Rami Maalej's assistant. Answer the general-knowledge "
+    "question directly and accurately in 1-3 short, natural sentences — like a "
+    "well-informed friend, not an encyclopedia entry. You may end with ONE "
+    "useful follow-up question or offer to search for more. No preamble, no "
+    "meta-commentary about being an AI."
 )
+
+# Pronoun patterns that make a question personal — answered from memory/vault.
+_PERSONAL_WORDS = (
+    " my ", " mine ", " i ", " i'", " me ", " my'",
+    " am i", " do i", " did i", " am ", "j'ai", "mon ", "ma ", "mes ", "je ",
+)
+
+
+def _is_personal_question(t: str) -> bool:
+    tspace = f" {t} "
+    return any(w in tspace for w in _PERSONAL_WORDS)
 
 
 def is_general_question(text: str) -> bool:
@@ -52,6 +65,19 @@ def is_general_question(text: str) -> bool:
     t = text.strip().lower()
     if not t or len(t) > 220:          # long texts usually contain tasks
         return False
+    # Questions about Rami himself ("what are my skills", "where do I work")
+    # are PERSONAL knowledge — they need the vault/memory layers, never the
+    # context-free fast path (which used to make him say "I cannot do that").
+    if _is_personal_question(t):
+        return False
+    # Social chatter needs the FULL system prompt (persona + memory), not the
+    # context-free fast answer — otherwise "how are you?" gets a canned reply.
+    try:
+        from core.jarvis_utils import _is_smalltalk
+        if _is_smalltalk(t):
+            return False
+    except Exception:
+        pass
     tspace = f" {t} "
     if any(t.startswith(w) or w in tspace for w in _TASK_WORDS):
         return False
@@ -84,9 +110,9 @@ def ask_general(question: str) -> str | None:
         elif isinstance(result, str):
             answer = result
         answer = answer.strip()
-        # cut after the first two sentences — we want it FAST
-        if len(answer) > 320:
-            answer = answer[:320].rsplit(".", 1)[0] + "."
+        # Keep it snappy — cut at a sentence boundary rather than mid-word.
+        if len(answer) > 500:
+            answer = answer[:500].rsplit(".", 1)[0] + "."
         return answer or None
     except Exception as e:
         logger.warning("Fast general answer failed: %s", e)

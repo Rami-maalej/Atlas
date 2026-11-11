@@ -29,9 +29,13 @@ def _load_system_prompt() -> str:
         _SYSTEM_PROMPT_CACHE = PROMPT_PATH.read_text(encoding="utf-8")
     except Exception:
         _SYSTEM_PROMPT_CACHE = (
-            "You are JARVIS, Tony Stark's AI assistant. "
-            "Be concise, direct, and helpful. You support both executing computer tasks via tools "
-            "and engaging in general friendly chat / conversation. Keep responses under 3 sentences."
+            "You are Atlantis, Rami Maalej's AI assistant. Talk like a real person: "
+            "warm, direct, dry wit, no corporate filler. Match the length of your "
+            "reply to the moment — one line for status, a few sentences for chat. "
+            "Vary your wording, never repeat the same opener or closer, and ask at "
+            "most one natural follow-up question when it helps. You support both "
+            "executing computer tasks via tools and friendly conversation. "
+            "Always answer in the user's language."
         )
     return _SYSTEM_PROMPT_CACHE
 
@@ -65,7 +69,11 @@ def _build_system_prompt(self, user_text: str = "") -> str:
     _episodic_ctx = ""
     try:
         from core.jarvis_memory import format_episode_recall, format_human_recall  # noqa: E402
-        _episodic_ctx = format_human_recall(user_text)
+        # include_facts/vectors=False → those blocks are injected once below
+        # (mem_str / vec_context), instead of twice as before.
+        _episodic_ctx = format_human_recall(
+            user_text, include_facts=False, include_vectors=False
+        )
     except Exception:
         pass
 
@@ -85,6 +93,11 @@ def _build_system_prompt(self, user_text: str = "") -> str:
     # ── Vector memory + skills: use pre-fetched result if available ─────
     vec_context   = getattr(self, "_prefetched_vec",   None)
     skill_context = getattr(self, "_prefetched_skill", None)
+    # Only trust a prefetch that was started for THIS user text.
+    if vec_context and getattr(self, "_prefetched_for", None) != user_text:
+        vec_context = None
+    if skill_context and getattr(self, "_prefetched_for", None) != user_text:
+        skill_context = None
 
     if vec_context is None and user_text:
         vec_context = get_relevant_context(user_text)
@@ -117,6 +130,44 @@ def _build_system_prompt(self, user_text: str = "") -> str:
         parts.append(vec_context)
     if skill_context:
         parts.append(skill_context)
+    # Obsidian vault = primary long-term memory (TTL-cached, non-fatal)
+    try:
+        from actions.obsidian_vault import build_memory_context
+        vault_ctx = build_memory_context()
+    except Exception:
+        vault_ctx = ""
+    if vault_ctx:
+        parts.append(vault_ctx)
+    # ── Vault RECALL: the actual contents of the most relevant notes ───
+    # This is the "he remembers what I told him, in detail" layer.
+    vault_recall = ""
+    if user_text:
+        try:
+            from actions.obsidian_vault import recall_context
+            vault_recall = recall_context(user_text)
+        except Exception:
+            vault_recall = ""
+    if vault_recall:
+        parts.append(
+            "[VAULT RECALL — the notes most relevant to this message; "
+            "weave the facts in naturally, do not recite them]\n" + vault_recall
+        )
+    elif user_text:
+        # Always-on vault access: even when no note matches this message
+        # directly, show what the vault contains and how to reach it.
+        try:
+            from actions.obsidian_vault import note_stem_index
+            stems = note_stem_index()
+        except Exception:
+            stems = ""
+        if stems:
+            parts.append(
+                "[VAULT — no note matched this message directly. That does NOT "
+                "mean the fact is missing: use the obsidian tool (action "
+                "\"search\" or \"read\" or \"list\") to look inside these notes "
+                "before ever saying you cannot or don't know about anything "
+                "personal to Rami]\n" + stems
+            )
     if agent_info:
         parts.append(agent_info)
     parts.append(time_ctx)

@@ -123,11 +123,18 @@ def format_episode_recall(query: str, top_k: int = 4) -> str:
     return "\n".join(lines)
 
 
-def format_human_recall(query: str, top_k: int = 5) -> str:
+def format_human_recall(query: str, top_k: int = 5,
+                        include_facts: bool = True,
+                        include_vectors: bool = True) -> str:
     """Combined human-style recall for the system prompt.
 
     Merges: explicit memories (long_term.json), semantic vectors,
-    and recent episodes.  Cached per-minute like the time context.
+    and recent episodes.
+
+    `include_facts` / `include_vectors` let the caller skip the pieces it
+    already injects on its own — without them the long-term memory block was
+    emitted TWICE in the same system prompt (jarvis_prompt + here), wasting
+    prompt budget on every single turn.
     """
     from memory.memory_manager import load_memory, format_memory_for_prompt
     from memory.vector_memory  import get_relevant_context, search_conversation
@@ -135,16 +142,18 @@ def format_human_recall(query: str, top_k: int = 5) -> str:
     parts: list[str] = []
 
     # 1. Explicit memory (facts / preferences / identity)
-    mem = load_memory()
-    mem_str = format_memory_for_prompt(mem)
-    if mem_str:
-        parts.append(mem_str)
+    if include_facts:
+        mem = load_memory()
+        mem_str = format_memory_for_prompt(mem)
+        if mem_str:
+            parts.append(mem_str)
 
     # 2. Semantic vectors (long-term associations)
     if query:
-        vec = get_relevant_context(query, top_k=top_k)
-        if isinstance(vec, str) and vec.strip():
-            parts.append(f"[SEMANTIC MEMORY]\n{vec}")
+        if include_vectors:
+            vec = get_relevant_context(query, top_k=top_k)
+            if isinstance(vec, str) and vec.strip():
+                parts.append(f"[SEMANTIC MEMORY]\n{vec}")
         # 3. Past conversations that match
         conv = search_conversation(query, top_k=2)
         if conv:
@@ -153,7 +162,7 @@ def format_human_recall(query: str, top_k: int = 5) -> str:
                 lines.append(
                     f"- [{c.get('timestamp', '')[:16]}] "
                     f"You: {str(c.get('user', ''))[:140]}\n"
-                    f"  Jarvis: {str(c.get('assistant', ''))[:200]}"
+                    f"  Atlantis: {str(c.get('assistant', ''))[:200]}"
                 )
             parts.append("[PAST CONVERSATIONS]\n" + "\n".join(lines))
 

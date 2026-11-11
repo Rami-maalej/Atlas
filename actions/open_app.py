@@ -201,6 +201,19 @@ def _refresh_app_cache():
         Path.home() / ".local/share/flatpak/exports/share/applications",
     ]
     
+    # Build the PATH executable set ONCE — shutil.which() rescans PATH for
+    # every .desktop file, which cost hundreds of stat calls on first open.
+    _path_dirs = [Path(d) for d in os.environ.get("PATH", "").split(os.pathsep) if d]
+    _path_names: set[str] = set()
+    for _pd in _path_dirs:
+        try:
+            _path_names.update(e.name for e in _pd.iterdir() if e.is_file())
+        except OSError:
+            continue
+
+    def _on_path(binary: str) -> bool:
+        return binary in _path_names
+
     _APP_CACHE.clear()
     for d in search_dirs:
         if not d.is_dir():
@@ -223,7 +236,7 @@ def _refresh_app_cache():
                 
                 if not no_display and app_name and exec_cmd:
                     binary = exec_cmd.split()[0]
-                    if shutil.which(binary):
+                    if _on_path(binary):
                         _APP_CACHE[app_name] = exec_cmd
             except Exception:
                 continue
@@ -388,6 +401,22 @@ def _launch_macos(app_name: str) -> bool:
 
 def _launch_linux(app_name: str) -> bool:
 
+    # Fast path: resolved .desktop Exec line (cached on first call).
+    # Popen is fire-and-forget — waiting after a successful spawn just adds
+    # 1 s of dead latency to every "open X".
+    cached_cmd = _find_desktop_app(app_name)
+    if cached_cmd and cached_cmd != app_name:
+        try:
+            subprocess.Popen(
+                cached_cmd.split(),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+            return True
+        except Exception:
+            pass
+
     binary = (
         shutil.which(app_name) or
         shutil.which(app_name.lower()) or
@@ -399,9 +428,9 @@ def _launch_linux(app_name: str) -> bool:
             subprocess.Popen(
                 [binary],
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
             )
-            time.sleep(1.0)
             return True
         except Exception:
             pass
@@ -475,7 +504,6 @@ def _open_url(url: str) -> bool:
             subprocess.Popen(["open", url])
         else:
             subprocess.Popen(["start", url])
-        time.sleep(1.5)
         return True
     except Exception as e:
         print(f"[open_app] URL open failed: {e}")

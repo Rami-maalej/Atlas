@@ -1,16 +1,8 @@
 {
   "identity": {
     "name": {
-      "value": "unknown",
-      "updated": "2026-06-09"
-    },
-    "status": {
-      "value": "working",
-      "updated": "2026-06-09"
-    },
-    "greeting": {
-      "value": "thank you",
-      "updated": "2026-06-09"
+      "value": "Rami Maalej",
+      "updated": "2026-09-27"
     },
     "city": {
       "value": "Sfax",
@@ -25,12 +17,6 @@
     "grocery_list": {
       "value": "buy almond milk",
       "updated": "2026-06-10"
-    }
-  },
-  "greeting": {
-    "hello": {
-      "value": "hello jarvis",
-      "updated": "2026-06-12"
     }
   }
 }

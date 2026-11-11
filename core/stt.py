@@ -19,14 +19,20 @@ class WhisperSTT:
         from faster_whisper import WhisperModel
         print(f"[STT] Loading Whisper '{model_name}'…")
         try:
-            import torch
-            device  = "cuda" if torch.cuda.is_available() else "cpu"
+            import ctranslate2
+            device  = "cuda" if ctranslate2.get_cuda_device_count() > 0 else "cpu"
             compute = "float16" if device == "cuda" else "int8"
         except Exception:
             device, compute = "cpu", "int8"
 
+        # ctranslate2 defaults to a conservative thread count; pinning it to the
+        # core count cuts CPU (int8) transcription time noticeably.
+        _threads = os.cpu_count() or 4
+
         try:
-            self._model = WhisperModel(model_name, device=device, compute_type=compute)
+            self._model = WhisperModel(
+                model_name, device=device, compute_type=compute, cpu_threads=_threads,
+            )
         except Exception as _first_err:
             # Offline flag set but model not cached yet → download once, then offline forever
             _e = str(_first_err).lower()
@@ -36,7 +42,9 @@ class WhisperSTT:
                 removed = remove_broken_hf_snapshot(model_name)
                 if removed:
                     print(f"[STT] Removed broken cache snapshot(s): {', '.join(removed)}")
-                self._model = WhisperModel(model_name, device=device, compute_type=compute)
+                self._model = WhisperModel(
+                    model_name, device=device, compute_type=compute, cpu_threads=_threads,
+                )
             else:
                 raise
 
@@ -52,6 +60,7 @@ class WhisperSTT:
                 beam_size=1,                       # greedy — 2-3x faster
                 best_of=1,
                 condition_on_previous_text=False,  # no hallucinations, faster
+                without_timestamps=True,           # skip timestamp decoding
                 vad_filter=True,
                 vad_parameters={"min_silence_duration_ms": 300},
             )

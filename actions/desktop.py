@@ -9,11 +9,9 @@ import platform
 from pathlib import Path
 from datetime import datetime
 
-try:
-    import pyautogui
-    _PYAUTOGUI = True
-except Exception:
-    _PYAUTOGUI = False
+from actions._lazy_pya import LazyPya, pya_saved as _pya_saved
+
+pyautogui = LazyPya()
 
 _OS = platform.system()  # "Windows" | "Darwin" | "Linux"
 
@@ -55,7 +53,7 @@ def _build_sandbox() -> dict:
         "os_path": os.path,  
     }
 
-    if _PYAUTOGUI:
+    if _pya_saved():
         sandbox["pyautogui"] = pyautogui
 
     if _OS == "Windows":

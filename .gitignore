@@ -23,3 +23,6 @@ RealTimeTutor/
 config/api_keys.json
 config/.email_key
 config/email_creds.enc
+config/.mail_creds.json
+config/mail.json
+config/remote_token.txt

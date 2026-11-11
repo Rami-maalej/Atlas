@@ -1,0 +1,16 @@
+{
+  "name": "testly",
+  "version": "1.0.0",
+  "description": "Create tests, take them, get instant scored results",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test tests/",
+    "start": "node server/index.js",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module"
+}

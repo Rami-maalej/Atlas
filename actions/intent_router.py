@@ -617,17 +617,12 @@ _INTENTS: list[dict[str, Any]] = [
 
 
 
-    # ── Greetings (instant — no LLM) ──────────────────────────────────
-    {
-        "name": "greeting",
-        "subsystem": "general",
-        "patterns": [
-            r"^(hi|hello|hey|yo|sup|good\s+(morning|afternoon|evening)|howdy|what'?s\s+up)",
-        ],
-        "handler": "greeting",
-        "params": {"response": "Hello! How can I help you?"},
-        "requires_ai": False,
-    },
+    # ── Greetings ─────────────────────────────────────────────────────
+    # Intentionally NO canned greeting intent.  A fixed
+    # "Hello! How can I help you?" made every opener identical and blind to
+    # memory (name, time of day, what you were doing).  Social messages are
+    # now detected as small-talk and answered by the model WITH the full
+    # system prompt (see core/jarvis_utils._is_smalltalk).
 
     # ── Personal Info (save memory directly, no LLM needed) ──────────
     {
@@ -698,6 +693,21 @@ _INTENTS: list[dict[str, Any]] = [
         ],
         "handler": "save_memory",
         "params": {"category": "identity", "key": "age"},
+        "requires_ai": False,
+    },
+
+    # ── Mail screen (Gmail-style overlay in the desktop UI) ────────────
+    {
+        "name": "open_mail_screen",
+        "subsystem": "email",
+        "patterns": [
+            r"^(open|show|launch|display)\s+(my\s+)?(the\s+)?(mail|email|inbox|e-?mail)s?\s*(screen|window|app|ui|page|view)",
+            r"^(open|show|launch)\s+(my\s+)?(mail|email|inbox)s?[\s?!]*$",
+            r"^(mail|email|inbox)\s*(screen|window|app|view)$",
+            r"^(ouvre|montre|affiche)\s+(mes|mon|ma|mes|les|l['’]?)\s*(mails?|emails?|bo[iî]te\s*[àa]?\s*mails?)",
+        ],
+        "handler": "open_mail_screen",
+        "params": {},
         "requires_ai": False,
     },
 
@@ -860,7 +870,7 @@ _INTENTS: list[dict[str, Any]] = [
         "subsystem": "browser",
         "patterns": [
             r"^(search|google|look\s+up|find\s+(out|on\s+the\s+web)|who\s+is|who\s+was|who\s+are|who\s+were)",
-            r"^(what\s+is|what\s+was|what\s+are|what\s+were)\s+(?!my\s+(budget|spending|tasks?|schedule|calendar|agenda))",
+            r"^(what\s+is|what\s+was|what\s+are|what\s+were)\s+(?!my\s|mes\s|ma\s|mon\s)",
             r"^(when|where|why|how)\s+(is|are|was|were|did|do|does|can|could|would|will)",
             r"^(price|bitcoin)",
             r"\?$",
@@ -1829,6 +1839,12 @@ class IntentRouter:
         self._intents = _INTENTS
 
     def route(self, text: str) -> IntentRouterResult:
+        # Guard against pathological multi-kilobyte input — every pattern is
+        # re.search()'d against this string, so one backtracking regex would
+        # hang the whole assistant (see mega_router._MAX_MATCH_LEN).
+        if len(text) > 4000:
+            text = text[:3600] + " " + text[-300:]
+
         """Route user text to the best matching intent.
 
         Returns IntentRouterResult — check .matched before using.

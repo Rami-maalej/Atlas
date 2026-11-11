@@ -470,7 +470,7 @@ def screen_process(
     print(f"[Vision] 💬 {analysis[:120]}")
 
     if player:
-        player.write_log(f"Jarvis: {analysis}")
+        player.write_log(f"Atlantis: {analysis}")
 
     if speak and analysis:
         speak(analysis)

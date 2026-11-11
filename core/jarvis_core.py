@@ -57,8 +57,10 @@ class JarvisLocal:
         self._generation = 0
         self._processing_lock = threading.Lock()
         self._prefetch_thread = None
-        self._prefetched_vec = ""
-        self._prefetched_skill = ""
+        # None (not "") = "not fetched yet" so jarvis_prompt falls back to an
+        # inline load instead of silently skipping semantic memory.
+        self._prefetched_vec = None
+        self._prefetched_skill = None
         self._last_intent = None
         self.ui.on_text_command = self._on_text_command
         self._current_language = "en"
@@ -176,8 +178,10 @@ class JarvisLocal:
                 try:
                     warmup_model(system_prompt=_load_system_prompt())
                     self.ui.write_log("SYS: LLM ready.")
+                    self.ui.mark_startup_ready("llm")
                 except Exception as e:
                     self.ui.write_log(f"ERR: LLM warmup — {e}")
+                    self.ui.mark_startup_ready("llm", error=True)
                 finally:
                     _warmup_done.set()
             # ── STT load thread ───────────────────────────────────────────
@@ -212,17 +216,22 @@ class JarvisLocal:
                     self.ui.mark_startup_ready("tts")
                     self.ui.set_startup_status("● All systems ready.")
                     self.ui.hide_startup_panel()
-                    self.speak("Jarvis fully online.")
+                    self.speak("Atlantis fully online.")
                 except Exception as e:
                     traceback.print_exc()
                     self.ui.write_log(f"ERR: TTS — {e}")
                     self.ui.mark_startup_ready("tts", error=True)
                     self._tts_ready.set()
+                    self.ui.set_startup_status("● Speech synthesis failed — text mode only.")
+                    self.ui.hide_startup_panel()
             # Launch all three simultaneously
             self.ui.write_log("SYS: Loading systems in parallel…")
             threading.Thread(target=_do_warmup, daemon=True).start()
             threading.Thread(target=_do_stt,    daemon=True).start()
             threading.Thread(target=_do_tts,    daemon=True).start()
+            # Watchdog — never leave the startup overlay up forever
+            # (e.g. TTS blocked on network fails silently in _do_tts).
+            threading.Timer(45, lambda: self.ui.hide_startup_panel()).start()
             # ── Wait ONLY for STT + LLM (fast) ────────────────────────────
             _warmup_done.wait(timeout=15)
             _stt_done.wait(timeout=60)
@@ -246,10 +255,17 @@ class JarvisLocal:
             get_scheduler().set_executor(_scheduler_executor)
             get_scheduler().start()
             self.ui.write_log("SYS: Scheduler started.")
+            # ── Autonomous proactive mind (nudges, briefings, vault journal) ──
+            try:
+                from core.proactive import start_proactive
+                start_proactive(self.ui, self.speak)
+                self.ui.write_log("SYS: Proactive mind started.")
+            except Exception as pe:
+                self.ui.write_log(f"ERR: Proactive — {pe}")
             # ── Go online immediately ──────────────────────────────────────
-            self.ui.write_log("SYS: JARVIS online.")
+            self.ui.write_log("SYS: ATLANTIS online.")
             self.ui.set_state("LISTENING")
-            self.ui.set_startup_status("● JARVIS online · Voice loading in background…")
+            self.ui.set_startup_status("● ATLANTIS online · Voice loading in background…")
             # ── Fetch location in background (cached for later use) ───────
             _loc_set = False
             def _init_location():

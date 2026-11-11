@@ -16,7 +16,10 @@ BASE_DIR         = get_base_dir()
 MEMORY_PATH      = BASE_DIR / "memory" / "long_term.json"
 _lock            = Lock()
 MAX_VALUE_LENGTH = 380
-MEMORY_MAX_CHARS = 2200
+# 2200 chars evicted genuine facts (name, project, preference) after ~2 days
+# because a single long note pushed past the cap. 3200 still keeps the
+# injected block well under 800 tokens.
+MEMORY_MAX_CHARS = 3200
 
 # ── In-memory cache to avoid disk reads every turn ──────────────────────
 _MEMORY_CACHE:     dict  = {}
@@ -124,13 +127,23 @@ def _recursive_update(target: dict, updates: dict) -> bool:
 
 
 def update_memory(memory_update: dict) -> dict:
+    global _MEMORY_CACHE_AT, _MEMORY_CACHE
     if not isinstance(memory_update, dict) or not memory_update:
         return load_memory()
     with _lock:
-        memory = json.loads(MEMORY_PATH.read_text(encoding="utf-8")) if MEMORY_PATH.exists() else _empty_memory()
-        if _recursive_update(memory, memory_update):
+        try:
+            memory = json.loads(MEMORY_PATH.read_text(encoding="utf-8")) if MEMORY_PATH.exists() else _empty_memory()
+        except Exception as e:
+            print(f"[Memory] ⚠️ Load error during update: {e}")
+            memory = _empty_memory()
+        changed = _recursive_update(memory, memory_update)
+        if changed:
+            _trim_to_limit(memory)
             MEMORY_PATH.write_text(json.dumps(memory, indent=2, ensure_ascii=False), encoding="utf-8")
-    if _recursive_update(memory, memory_update):
+            _MEMORY_CACHE.clear()
+            _MEMORY_CACHE.update(memory)
+            _MEMORY_CACHE_AT = 0.0
+    if changed:
         print(f"[Memory] 💾 Saved: {list(memory_update.keys())}")
     return memory
 
@@ -205,8 +218,8 @@ def format_memory_for_prompt(memory: dict | None) -> str:
 
     header = "[WHAT YOU KNOW ABOUT THIS PERSON — use naturally, never recite like a list]\n"
     result = header + "\n".join(lines)
-    if len(result) > 2000:
-        result = result[:1997] + "…"
+    if len(result) > 2600:
+        result = result[:2597] + "…"
 
     return result + "\n"
 

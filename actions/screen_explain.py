@@ -1,13 +1,25 @@
+from __future__ import annotations
+
 import json
 import logging
 import subprocess
 from io import BytesIO
 from pathlib import Path
+from typing import Any
 
-import cv2
-import mss
-import numpy as np
-from PIL import Image
+try:  # Optional deps — without them we still explain the screen from the
+    # accessibility tree + active window instead of failing outright.
+    import cv2
+    import mss
+    import numpy as np
+    from PIL import Image
+    _HAS_VISION = True
+except ImportError:  # pragma: no cover - depends on the host install
+    cv2 = None  # type: ignore[assignment]
+    mss = None  # type: ignore[assignment]
+    np = None  # type: ignore[assignment]
+    Image = None  # type: ignore[assignment]
+    _HAS_VISION = False
 
 logger = logging.getLogger("screen_explain")
 
@@ -36,6 +48,8 @@ def _ollama_chat(messages: list[dict], model: str = _MODEL) -> str:
 
 
 def _screenshot() -> bytes:
+    if not _HAS_VISION:
+        raise RuntimeError("screenshot support missing (install mss + pillow)")
     with mss.mss() as sct:
         monitor = sct.monitors[1]
         raw = sct.grab(monitor)
@@ -46,6 +60,8 @@ def _screenshot() -> bytes:
 
 
 def _analyze_image(img_bytes: bytes) -> dict:
+    if not _HAS_VISION:
+        return {}
     arr = np.frombuffer(img_bytes, np.uint8)
     img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
     if img is None:
@@ -122,15 +138,22 @@ def _ui_elements() -> list[dict]:
 
 
 def screen_explain(parameters: dict = None, **kwargs) -> str:
-    try:
-        img_bytes = _screenshot()
-    except Exception as e:
-        logger.error("Screenshot failed: %s", e)
-        return f"I cannot take a screenshot right now."
+    img_bytes = None
+    if _HAS_VISION:
+        try:
+            img_bytes = _screenshot()
+        except Exception as e:
+            logger.error("Screenshot failed: %s", e)
 
-    img_info = _analyze_image(img_bytes)
+    img_info = _analyze_image(img_bytes) if img_bytes else {}
     window = _active_window()
     elements = _ui_elements()
+
+    if img_info is None:
+        img_info = {}
+
+    if not img_info and not elements and window == "unknown":
+        return "I cannot see the screen — screenshot support is not installed."
 
     ui_text = "\n".join(
         f"  {e.get('role', '?')}: {e.get('name', '')}" for e in elements

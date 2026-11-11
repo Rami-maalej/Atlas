@@ -319,6 +319,254 @@
       "due": "",
       "done": false,
       "created": "2026-08-20T12:31:37.020397"
+    },
+    {
+      "id": "task-1790451790685",
+      "title": "crud test",
+      "priority": "normal",
+      "due": "",
+      "done": false,
+      "created": "2026-09-26T20:43:10.685174"
+    },
+    {
+      "id": "task-1790451790717",
+      "title": "urgent",
+      "priority": "high",
+      "due": "2026-12-31",
+      "done": false,
+      "created": "2026-09-26T20:43:10.717063"
+    },
+    {
+      "id": "task-1790451790781",
+      "title": "dispatch test",
+      "priority": "normal",
+      "due": "",
+      "done": false,
+      "created": "2026-09-26T20:43:10.781108"
+    },
+    {
+      "id": "task-1790452413238",
+      "title": "crud test",
+      "priority": "normal",
+      "due": "",
+      "done": false,
+      "created": "2026-09-26T20:53:33.238556"
+    },
+    {
+      "id": "task-1790452413279",
+      "title": "urgent",
+      "priority": "high",
+      "due": "2026-12-31",
+      "done": false,
+      "created": "2026-09-26T20:53:33.279774"
+    },
+    {
+      "id": "task-1790452413366",
+      "title": "dispatch test",
+      "priority": "normal",
+      "due": "",
+      "done": false,
+      "created": "2026-09-26T20:53:33.366879"
+    },
+    {
+      "id": "task-1790452505626",
+      "title": "crud test",
+      "priority": "normal",
+      "due": "",
+      "done": false,
+      "created": "2026-09-26T20:55:05.626701"
+    },
+    {
+      "id": "task-1790452505666",
+      "title": "urgent",
+      "priority": "high",
+      "due": "2026-12-31",
+      "done": false,
+      "created": "2026-09-26T20:55:05.666548"
+    },
+    {
+      "id": "task-1790452505744",
+      "title": "dispatch test",
+      "priority": "normal",
+      "due": "",
+      "done": false,
+      "created": "2026-09-26T20:55:05.744656"
+    },
+    {
+      "id": "task-1790453253562",
+      "title": "crud test",
+      "priority": "normal",
+      "due": "",
+      "done": false,
+      "created": "2026-09-26T21:07:33.562791"
+    },
+    {
+      "id": "task-1790453253579",
+      "title": "urgent",
+      "priority": "high",
+      "due": "2026-12-31",
+      "done": false,
+      "created": "2026-09-26T21:07:33.579638"
+    },
+    {
+      "id": "task-1790453253618",
+      "title": "dispatch test",
+      "priority": "normal",
+      "due": "",
+      "done": false,
+      "created": "2026-09-26T21:07:33.618766"
+    },
+    {
+      "id": "task-1790457199082",
+      "title": "crud test",
+      "priority": "normal",
+      "due": "",
+      "done": false,
+      "created": "2026-09-26T22:13:19.082740"
+    },
+    {
+      "id": "task-1790457199107",
+      "title": "urgent",
+      "priority": "high",
+      "due": "2026-12-31",
+      "done": false,
+      "created": "2026-09-26T22:13:19.107350"
+    },
+    {
+      "id": "task-1790457199152",
+      "title": "dispatch test",
+      "priority": "normal",
+      "due": "",
+      "done": false,
+      "created": "2026-09-26T22:13:19.152230"
+    },
+    {
+      "id": "task-1790517712086",
+      "title": "crud test",
+      "priority": "normal",
+      "due": "",
+      "done": false,
+      "created": "2026-09-27T15:01:52.086768"
+    },
+    {
+      "id": "task-1790517712104",
+      "title": "urgent",
+      "priority": "high",
+      "due": "2026-12-31",
+      "done": false,
+      "created": "2026-09-27T15:01:52.104067"
+    },
+    {
+      "id": "task-1790517712143",
+      "title": "dispatch test",
+      "priority": "normal",
+      "due": "",
+      "done": false,
+      "created": "2026-09-27T15:01:52.143830"
+    },
+    {
+      "id": "task-1791726690228",
+      "title": "crud test",
+      "priority": "normal",
+      "due": "",
+      "done": false,
+      "created": "2026-10-11T14:51:30.228727"
+    },
+    {
+      "id": "task-1791726690247",
+      "title": "urgent",
+      "priority": "high",
+      "due": "2026-12-31",
+      "done": false,
+      "created": "2026-10-11T14:51:30.247280"
+    },
+    {
+      "id": "task-1791726690282",
+      "title": "dispatch test",
+      "priority": "normal",
+      "due": "",
+      "done": false,
+      "created": "2026-10-11T14:51:30.282672"
+    },
+    {
+      "id": "task-1791727347691",
+      "title": "crud test",
+      "priority": "normal",
+      "due": "",
+      "done": false,
+      "created": "2026-10-11T15:02:27.691761"
+    },
+    {
+      "id": "task-1792158234230",
+      "title": "crud test",
+      "priority": "normal",
+      "due": "",
+      "done": false,
+      "created": "2026-10-16T14:43:54.230243"
+    },
+    {
+      "id": "task-1792158234249",
+      "title": "urgent",
+      "priority": "high",
+      "due": "2026-12-31",
+      "done": false,
+      "created": "2026-10-16T14:43:54.249706"
+    },
+    {
+      "id": "task-1792158234292",
+      "title": "dispatch test",
+      "priority": "normal",
+      "due": "",
+      "done": false,
+      "created": "2026-10-16T14:43:54.292945"
+    },
+    {
+      "id": "task-1792158918448",
+      "title": "crud test",
+      "priority": "normal",
+      "due": "",
+      "done": false,
+      "created": "2026-10-16T14:55:18.448059"
+    },
+    {
+      "id": "task-1792158918469",
+      "title": "urgent",
+      "priority": "high",
+      "due": "2026-12-31",
+      "done": false,
+      "created": "2026-10-16T14:55:18.469413"
+    },
+    {
+      "id": "task-1792158918509",
+      "title": "dispatch test",
+      "priority": "normal",
+      "due": "",
+      "done": false,
+      "created": "2026-10-16T14:55:18.509902"
+    },
+    {
+      "id": "task-1792159594855",
+      "title": "crud test",
+      "priority": "normal",
+      "due": "",
+      "done": false,
+      "created": "2026-10-16T15:06:34.855643"
+    },
+    {
+      "id": "task-1792159594873",
+      "title": "urgent",
+      "priority": "high",
+      "due": "2026-12-31",
+      "done": false,
+      "created": "2026-10-16T15:06:34.873874"
+    },
+    {
+      "id": "task-1792159594915",
+      "title": "dispatch test",
+      "priority": "normal",
+      "due": "",
+      "done": false,
+      "created": "2026-10-16T15:06:34.915156"
     }
   ],
   "transactions": [
@@ -906,6 +1154,456 @@
       "type": "expense",
       "date": "2026-08-20",
       "created": "2026-08-20T12:31:37.025297"
+    },
+    {
+      "id": "tx-1790451790784",
+      "description": "Salary",
+      "amount": 5000,
+      "category": "other",
+      "type": "income",
+      "date": "2026-09-26",
+      "created": "2026-09-26T20:43:10.784448"
+    },
+    {
+      "id": "tx-1790451790787",
+      "description": "Groceries",
+      "amount": 150.5,
+      "category": "food",
+      "type": "expense",
+      "date": "2026-09-26",
+      "created": "2026-09-26T20:43:10.787532"
+    },
+    {
+      "id": "tx-1790451790790",
+      "description": "Salary",
+      "amount": 5000,
+      "category": "other",
+      "type": "income",
+      "date": "2026-09-26",
+      "created": "2026-09-26T20:43:10.790602"
+    },
+    {
+      "id": "tx-1790451790791",
+      "description": "Rent",
+      "amount": 1200,
+      "category": "other",
+      "type": "expense",
+      "date": "2026-09-26",
+      "created": "2026-09-26T20:43:10.791699"
+    },
+    {
+      "id": "tx-1790451790795",
+      "description": "Freelance",
+      "amount": 1000.0,
+      "category": "other",
+      "type": "expense",
+      "date": "2026-09-26",
+      "created": "2026-09-26T20:43:10.795957"
+    },
+    {
+      "id": "tx-1790452413372",
+      "description": "Salary",
+      "amount": 5000,
+      "category": "other",
+      "type": "income",
+      "date": "2026-09-26",
+      "created": "2026-09-26T20:53:33.372760"
+    },
+    {
+      "id": "tx-1790452413378",
+      "description": "Groceries",
+      "amount": 150.5,
+      "category": "food",
+      "type": "expense",
+      "date": "2026-09-26",
+      "created": "2026-09-26T20:53:33.378366"
+    },
+    {
+      "id": "tx-1790452413383",
+      "description": "Salary",
+      "amount": 5000,
+      "category": "other",
+      "type": "income",
+      "date": "2026-09-26",
+      "created": "2026-09-26T20:53:33.383606"
+    },
+    {
+      "id": "tx-1790452413385",
+      "description": "Rent",
+      "amount": 1200,
+      "category": "other",
+      "type": "expense",
+      "date": "2026-09-26",
+      "created": "2026-09-26T20:53:33.385363"
+    },
+    {
+      "id": "tx-1790452413391",
+      "description": "Freelance",
+      "amount": 1000.0,
+      "category": "other",
+      "type": "expense",
+      "date": "2026-09-26",
+      "created": "2026-09-26T20:53:33.391047"
+    },
+    {
+      "id": "tx-1790452505751",
+      "description": "Salary",
+      "amount": 5000,
+      "category": "other",
+      "type": "income",
+      "date": "2026-09-26",
+      "created": "2026-09-26T20:55:05.751844"
+    },
+    {
+      "id": "tx-1790452505757",
+      "description": "Groceries",
+      "amount": 150.5,
+      "category": "food",
+      "type": "expense",
+      "date": "2026-09-26",
+      "created": "2026-09-26T20:55:05.757592"
+    },
+    {
+      "id": "tx-1790452505762",
+      "description": "Salary",
+      "amount": 5000,
+      "category": "other",
+      "type": "income",
+      "date": "2026-09-26",
+      "created": "2026-09-26T20:55:05.762247"
+    },
+    {
+      "id": "tx-1790452505763",
+      "description": "Rent",
+      "amount": 1200,
+      "category": "other",
+      "type": "expense",
+      "date": "2026-09-26",
+      "created": "2026-09-26T20:55:05.763769"
+    },
+    {
+      "id": "tx-1790452505769",
+      "description": "Freelance",
+      "amount": 1000.0,
+      "category": "other",
+      "type": "expense",
+      "date": "2026-09-26",
+      "created": "2026-09-26T20:55:05.769508"
+    },
+    {
+      "id": "tx-1790453253621",
+      "description": "Salary",
+      "amount": 5000,
+      "category": "other",
+      "type": "income",
+      "date": "2026-09-26",
+      "created": "2026-09-26T21:07:33.621439"
+    },
+    {
+      "id": "tx-1790453253623",
+      "description": "Groceries",
+      "amount": 150.5,
+      "category": "food",
+      "type": "expense",
+      "date": "2026-09-26",
+      "created": "2026-09-26T21:07:33.623673"
+    },
+    {
+      "id": "tx-1790453253625",
+      "description": "Salary",
+      "amount": 5000,
+      "category": "other",
+      "type": "income",
+      "date": "2026-09-26",
+      "created": "2026-09-26T21:07:33.625704"
+    },
+    {
+      "id": "tx-1790453253626",
+      "description": "Rent",
+      "amount": 1200,
+      "category": "other",
+      "type": "expense",
+      "date": "2026-09-26",
+      "created": "2026-09-26T21:07:33.626457"
+    },
+    {
+      "id": "tx-1790453253628",
+      "description": "Freelance",
+      "amount": 1000.0,
+      "category": "other",
+      "type": "expense",
+      "date": "2026-09-26",
+      "created": "2026-09-26T21:07:33.628940"
+    },
+    {
+      "id": "tx-1790457199155",
+      "description": "Salary",
+      "amount": 5000,
+      "category": "other",
+      "type": "income",
+      "date": "2026-09-26",
+      "created": "2026-09-26T22:13:19.155252"
+    },
+    {
+      "id": "tx-1790457199157",
+      "description": "Groceries",
+      "amount": 150.5,
+      "category": "food",
+      "type": "expense",
+      "date": "2026-09-26",
+      "created": "2026-09-26T22:13:19.157880"
+    },
+    {
+      "id": "tx-1790457199160",
+      "description": "Salary",
+      "amount": 5000,
+      "category": "other",
+      "type": "income",
+      "date": "2026-09-26",
+      "created": "2026-09-26T22:13:19.160429"
+    },
+    {
+      "id": "tx-1790457199161",
+      "description": "Rent",
+      "amount": 1200,
+      "category": "other",
+      "type": "expense",
+      "date": "2026-09-26",
+      "created": "2026-09-26T22:13:19.161979"
+    },
+    {
+      "id": "tx-1790457199166",
+      "description": "Freelance",
+      "amount": 1000.0,
+      "category": "other",
+      "type": "expense",
+      "date": "2026-09-26",
+      "created": "2026-09-26T22:13:19.166470"
+    },
+    {
+      "id": "tx-1790517712146",
+      "description": "Salary",
+      "amount": 5000,
+      "category": "other",
+      "type": "income",
+      "date": "2026-09-27",
+      "created": "2026-09-27T15:01:52.146029"
+    },
+    {
+      "id": "tx-1790517712148",
+      "description": "Groceries",
+      "amount": 150.5,
+      "category": "food",
+      "type": "expense",
+      "date": "2026-09-27",
+      "created": "2026-09-27T15:01:52.148090"
+    },
+    {
+      "id": "tx-1790517712150",
+      "description": "Salary",
+      "amount": 5000,
+      "category": "other",
+      "type": "income",
+      "date": "2026-09-27",
+      "created": "2026-09-27T15:01:52.150111"
+    },
+    {
+      "id": "tx-1790517712150",
+      "description": "Rent",
+      "amount": 1200,
+      "category": "other",
+      "type": "expense",
+      "date": "2026-09-27",
+      "created": "2026-09-27T15:01:52.150936"
+    },
+    {
+      "id": "tx-1790517712154",
+      "description": "Freelance",
+      "amount": 1000.0,
+      "category": "other",
+      "type": "expense",
+      "date": "2026-09-27",
+      "created": "2026-09-27T15:01:52.154102"
+    },
+    {
+      "id": "tx-1791726690285",
+      "description": "Salary",
+      "amount": 5000,
+      "category": "other",
+      "type": "income",
+      "date": "2026-10-11",
+      "created": "2026-10-11T14:51:30.285335"
+    },
+    {
+      "id": "tx-1791726690287",
+      "description": "Groceries",
+      "amount": 150.5,
+      "category": "food",
+      "type": "expense",
+      "date": "2026-10-11",
+      "created": "2026-10-11T14:51:30.287347"
+    },
+    {
+      "id": "tx-1791726690289",
+      "description": "Salary",
+      "amount": 5000,
+      "category": "other",
+      "type": "income",
+      "date": "2026-10-11",
+      "created": "2026-10-11T14:51:30.289334"
+    },
+    {
+      "id": "tx-1791726690290",
+      "description": "Rent",
+      "amount": 1200,
+      "category": "other",
+      "type": "expense",
+      "date": "2026-10-11",
+      "created": "2026-10-11T14:51:30.290258"
+    },
+    {
+      "id": "tx-1791726690293",
+      "description": "Freelance",
+      "amount": 1000.0,
+      "category": "other",
+      "type": "expense",
+      "date": "2026-10-11",
+      "created": "2026-10-11T14:51:30.293087"
+    },
+    {
+      "id": "tx-1792158234296",
+      "description": "Salary",
+      "amount": 5000,
+      "category": "other",
+      "type": "income",
+      "date": "2026-10-16",
+      "created": "2026-10-16T14:43:54.296490"
+    },
+    {
+      "id": "tx-1792158234300",
+      "description": "Groceries",
+      "amount": 150.5,
+      "category": "food",
+      "type": "expense",
+      "date": "2026-10-16",
+      "created": "2026-10-16T14:43:54.300342"
+    },
+    {
+      "id": "tx-1792158234303",
+      "description": "Salary",
+      "amount": 5000,
+      "category": "other",
+      "type": "income",
+      "date": "2026-10-16",
+      "created": "2026-10-16T14:43:54.303361"
+    },
+    {
+      "id": "tx-1792158234304",
+      "description": "Rent",
+      "amount": 1200,
+      "category": "other",
+      "type": "expense",
+      "date": "2026-10-16",
+      "created": "2026-10-16T14:43:54.304315"
+    },
+    {
+      "id": "tx-1792158234307",
+      "description": "Freelance",
+      "amount": 1000.0,
+      "category": "other",
+      "type": "expense",
+      "date": "2026-10-16",
+      "created": "2026-10-16T14:43:54.307327"
+    },
+    {
+      "id": "tx-1792158918513",
+      "description": "Salary",
+      "amount": 5000,
+      "category": "other",
+      "type": "income",
+      "date": "2026-10-16",
+      "created": "2026-10-16T14:55:18.513051"
+    },
+    {
+      "id": "tx-1792158918516",
+      "description": "Groceries",
+      "amount": 150.5,
+      "category": "food",
+      "type": "expense",
+      "date": "2026-10-16",
+      "created": "2026-10-16T14:55:18.516049"
+    },
+    {
+      "id": "tx-1792158918518",
+      "description": "Salary",
+      "amount": 5000,
+      "category": "other",
+      "type": "income",
+      "date": "2026-10-16",
+      "created": "2026-10-16T14:55:18.518358"
+    },
+    {
+      "id": "tx-1792158918519",
+      "description": "Rent",
+      "amount": 1200,
+      "category": "other",
+      "type": "expense",
+      "date": "2026-10-16",
+      "created": "2026-10-16T14:55:18.519329"
+    },
+    {
+      "id": "tx-1792158918523",
+      "description": "Freelance",
+      "amount": 1000.0,
+      "category": "other",
+      "type": "expense",
+      "date": "2026-10-16",
+      "created": "2026-10-16T14:55:18.523808"
+    },
+    {
+      "id": "tx-1792159594918",
+      "description": "Salary",
+      "amount": 5000,
+      "category": "other",
+      "type": "income",
+      "date": "2026-10-16",
+      "created": "2026-10-16T15:06:34.918573"
+    },
+    {
+      "id": "tx-1792159594921",
+      "description": "Groceries",
+      "amount": 150.5,
+      "category": "food",
+      "type": "expense",
+      "date": "2026-10-16",
+      "created": "2026-10-16T15:06:34.921122"
+    },
+    {
+      "id": "tx-1792159594923",
+      "description": "Salary",
+      "amount": 5000,
+      "category": "other",
+      "type": "income",
+      "date": "2026-10-16",
+      "created": "2026-10-16T15:06:34.923881"
+    },
+    {
+      "id": "tx-1792159594924",
+      "description": "Rent",
+      "amount": 1200,
+      "category": "other",
+      "type": "expense",
+      "date": "2026-10-16",
+      "created": "2026-10-16T15:06:34.924873"
+    },
+    {
+      "id": "tx-1792159594927",
+      "description": "Freelance",
+      "amount": 1000.0,
+      "category": "other",
+      "type": "expense",
+      "date": "2026-10-16",
+      "created": "2026-10-16T15:06:34.927957"
     }
   ]
 }

@@ -16,12 +16,17 @@ _DEFAULT_PROFILE = {
     "phone": "+216 54 903 705",
     "languages": ["Arabic (native)", "French (B2)", "English (B2)"],
     "education": {"degree": "B.Sc. in Computer Science", "school": "ISIMS Sfax", "year": "2026"},
-    "projects": {"Jarvis": "Desktop AI assistant — Python, PyQt6, Ollama/Groq/Gemini, Whisper STT, TTS, screen OCR, browser automation"},
+    "projects": {"Atlantis": "Desktop AI assistant — Python, PyQt6, Ollama/Groq/Gemini, Whisper STT, TTS, screen OCR, browser automation"},
     "timezone": "Africa/Tunis",
+    # Learned from conversation (see core/jarvis_learn.py) — never asked twice.
+    "interests": [],
     "_auto_populated": True,
 }
 
 _cache: dict | None = None
+
+# Newest first, capped so the prompt block can't grow without bound.
+MAX_INTERESTS = 14
 
 
 def _profile_path() -> Path:
@@ -50,16 +55,51 @@ def load_profile() -> dict:
         return _cache
 
 
+def invalidate_profile_cache() -> None:
+    """Drop the in-process cache so an external edit (UI, user) is picked up."""
+    global _cache
+    _cache = None
+
+
 def update_profile(patch: dict) -> dict:
-    """Merge new keys into the profile and persist."""
+    """Merge new keys into the profile and persist.
+
+    List fields (interests, skills, work, languages) are MERGED, not
+    replaced — losing the existing interests because one new one arrived
+    would be a silent memory wipe.
+    """
     profile = load_profile()
-    profile.update(patch)
+    for key, value in patch.items():
+        if isinstance(value, list) and isinstance(profile.get(key), list):
+            existing = profile[key]
+            fresh = [i for i in value if i and i not in existing]
+            if key == "interests":
+                # Newest interest first — the prompt block shows the head.
+                profile[key] = (fresh + existing)[:MAX_INTERESTS]
+            else:
+                existing.extend(fresh)
+        else:
+            profile[key] = value
     try:
+        _profile_path().parent.mkdir(parents=True, exist_ok=True)
         _profile_path().write_text(json.dumps(profile, indent=2, ensure_ascii=False), encoding="utf-8")
     except Exception as exc:  # noqa: BLE001
         logger.warning("profile write error: %s", exc)
+    global _cache
     _cache = profile
     return profile
+
+
+def add_interest(interest: str) -> bool:
+    """Record one learned interest. Returns True if it was new."""
+    name = " ".join(str(interest).split()).strip(" .,-—")
+    if len(name) < 3 or len(name) > 60:
+        return False
+    current = [str(i) for i in load_profile().get("interests", []) or []]
+    if name.lower() in {i.lower() for i in current}:
+        return False
+    update_profile({"interests": [name]})
+    return True
 
 
 def about_summary(max_chars: int = 1200) -> str:
@@ -82,15 +122,55 @@ def about_summary(max_chars: int = 1200) -> str:
         lines.append("Projects: " + ", ".join(k for k in projects))
     lines.append(f"Languages: {', '.join(str(l) for l in p.get('languages', []))}. "
                  f"Contact: {p.get('email', '')} / {p.get('phone', '')}.")
-    lines.append("You are J.A.R.V.I.S. MARK XL, created by Rami Maalej. You are his ultimate digital assistant.")
+    lines.append("You are ATLANTIS MARK XL, created by Rami Maalej. You are his ultimate digital assistant.")
     out = " ".join(lines)
     return out[:max_chars]
 
 
 def profile_for_prompt(max_chars: int = 1600) -> str:
-    """Markdown snippet injected into the system prompt so the LLM
-    always knows everything about the user without asking."""
+    """Compact prose snippet injected into the system prompt so the LLM
+    always knows everything about the user without asking.
+
+    Deliberately not raw JSON: `json.dumps(indent=2)` burned ~3x the tokens
+    on braces and key names and got cut off mid-object by max_chars.
+    """
     p = load_profile()
-    chunk = json.dumps(p, indent=2, ensure_ascii=False)
-    return ("USER PROFILE — everything Jarvis knows about its user (do not ask for facts already here):\n"
-            + chunk)[:max_chars]
+
+    def flat(v, sep=", "):
+        if isinstance(v, list):
+            return sep.join(str(x) for x in v)
+        if isinstance(v, dict):
+            return sep.join(f"{k}: {vv}" for k, vv in v.items())
+        return str(v)
+
+    lines = ["USER PROFILE — everything you know about your user (never ask for facts already here):"]
+    if p.get("name"):
+        lines.append(f"Name: {p['name']}")
+    loc = p.get("location", "")
+    tz = p.get("timezone", "")
+    if loc or tz:
+        lines.append(f"Location: {loc or '—'} (timezone: {tz or '—'})")
+    if p.get("languages"):
+        lines.append(f"Languages: {flat(p['languages'])}")
+    edu = p.get("education") or {}
+    if edu:
+        lines.append("Education: " + " — ".join(
+            str(edu.get(k, "")) for k in ("degree", "school", "year") if edu.get(k)))
+    if p.get("work"):
+        lines.append("Experience: " + " | ".join(str(w)[:180] for w in p["work"][:3]))
+    if p.get("skills"):
+        lines.append(f"Skills: {flat(p['skills'][:20])}")
+    if isinstance(p.get("projects"), dict) and p["projects"]:
+        lines.append("Projects: " + " | ".join(
+            f"{k} — {str(v)[:90]}" for k, v in list(p["projects"].items())[:8]))
+    if p.get("interests"):
+        lines.append("Interests (learned from you): " + flat(p["interests"]))
+    if p.get("notes"):
+        lines.append(f"Notes: {flat(p['notes'])}")
+    if p.get("email") or p.get("phone"):
+        lines.append(f"Contact: {p.get('email', '')} / {p.get('phone', '')}")
+
+    out = "\n".join(lines)
+    if len(out) > max_chars:
+        out = out[:max_chars]
+    return out

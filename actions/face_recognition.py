@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import os
 import platform
@@ -5,16 +7,28 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-import cv2
-import numpy as np
+try:  # OpenCV is optional — without it every vision tool degrades to "no camera".
+    import cv2
+    import numpy as np
+    _HAS_CV2 = True
+except ImportError:  # pragma: no cover - exercised on installs without opencv
+    cv2 = None  # type: ignore[assignment]
+    np = None  # type: ignore[assignment]
+    _HAS_CV2 = False
 
 logger = logging.getLogger("face_recognition")
 
 _OS = platform.system()
-_CASCADE_DIR = Path(cv2.data.haarcascades) if hasattr(cv2, "data") else Path(cv2.__file__).parent / "data"
+_CASCADE_DIR = (
+    Path(cv2.data.haarcascades)
+    if _HAS_CV2 and hasattr(cv2, "data")
+    else Path(cv2.__file__).parent / "data" if _HAS_CV2 else Path()
+)
 
 
-def _get_cascade(name: str = "haarcascade_frontalface_default.xml") -> cv2.CascadeClassifier | None:
+def _get_cascade(name: str = "haarcascade_frontalface_default.xml") -> Any:
+    if not _HAS_CV2:
+        return None
     path = _CASCADE_DIR / name
     if path.exists():
         return cv2.CascadeClassifier(str(path))
@@ -25,7 +39,9 @@ def _get_cascade(name: str = "haarcascade_frontalface_default.xml") -> cv2.Casca
     return None
 
 
-def detect_faces(image: np.ndarray) -> list[dict[str, Any]]:
+def detect_faces(image: Any) -> list[dict[str, Any]]:
+    if not _HAS_CV2:
+        return []
     cascade = _get_cascade()
     if cascade is None:
         return []
@@ -71,6 +87,8 @@ def detect_eyes(image: np.ndarray) -> list[dict[str, Any]]:
 
 
 def capture_camera(index: int = 0) -> np.ndarray | None:
+    if not _HAS_CV2:
+        return None
     backend = cv2.CAP_ANY
     if _OS == "Windows":
         backend = cv2.CAP_DSHOW
@@ -90,6 +108,8 @@ def capture_camera(index: int = 0) -> np.ndarray | None:
 
 
 def analyze_camera_feed(detect: str = "faces") -> dict[str, Any]:
+    if not _HAS_CV2:
+        return {"error": "OpenCV (cv2) is not installed — vision tools disabled", "faces": 0}
     frame = capture_camera()
     if frame is None:
         return {"error": "No camera available", "faces": 0}
