@@ -11,10 +11,13 @@ Reverse geocoding: Nominatim / OpenStreetMap (free, no API key).
 """
 
 from __future__ import annotations
+import os
 import subprocess
+import sys
 import threading
 import re
 import requests
+from pathlib import Path
 
 from memory.memory_manager import load_memory as _load_memory
 
@@ -62,65 +65,88 @@ def _reverse_geocode(lat: float, lon: float) -> dict:
 def _geoclue2_location() -> tuple[float, float] | None:
     """
     Query the GeoClue2 daemon via PyGObject.
+
     GeoClue2 uses WiFi SSID scanning + Mozilla Location Service / GPS
     for accurate positioning without requiring a hardware GPS chip.
 
     Requires: python3-gobject  (dnf install python3-gobject)
     The user must allow location access once in:
       GNOME Settings → Privacy → Location Services → ON
+
+    The probe runs in a CHILD PROCESS on purpose.  ``Geoclue.Simple.new_sync``
+    blocks on the GeoClue daemon and calls ``abort()`` from inside GLib when
+    the daemon is missing or the bus is unavailable — taking the whole
+    assistant down with it.  Isolating it means a broken location service
+    can only ever cost us the coordinates.
     """
-    result: list = []
-    done  = threading.Event()
+    if os.environ.get("ULTRON_DISABLE_GEOCLUE", "").strip():
+        return None
 
-    def _worker():
+    try:
+        # The probe runs as a script, so make sure the project root is
+        # importable (the module imports memory.memory_manager).
+        env = dict(os.environ)
+        root = str(Path(__file__).resolve().parent.parent)
+        env["PYTHONPATH"] = root + os.pathsep + env.get("PYTHONPATH", "")
+        proc = subprocess.run(
+            [sys.executable, __file__, "--geoclue-probe"],
+            capture_output=True,
+            timeout=_TIMEOUT + 5,
+            env=env,
+        )
+    except subprocess.TimeoutExpired:
+        return None
+    except Exception as exc:
+        print(f"[Location] GeoClue2 probe failed to start: {exc}")
+        return None
+
+    out = (proc.stdout or b"").decode("utf-8", errors="replace").strip()
+    if not out:
+        return None
+    try:
+        lat, lon = out.split(",", 1)
+        return float(lat), float(lon)
+    except ValueError:
+        return None
+
+
+def _geoclue2_probe() -> None:
+    """Child-process entry point for the GeoClue2 probe."""
+    try:
+        import gi
+        gi.require_version("Geoclue", "2.0")
+        from gi.repository import Geoclue, GLib
+
+        ctx = GLib.MainContext.new()
+        loop = GLib.MainLoop.new(ctx, False)
+
+        def _on_notify(*_):
+            loop.quit()
+
+        ctx.push_thread_default()
         try:
-            import gi
-            gi.require_version("Geoclue", "2.0")
-            from gi.repository import Geoclue, GLib
+            simple = Geoclue.Simple.new_sync(
+                "com.markxl.jarvis",
+                Geoclue.AccuracyLevel.STREET,
+                None,
+            )
+            simple.connect("notify::location", _on_notify)
 
-            # Run inside its own GLib main context so we don't block the UI
-            ctx    = GLib.MainContext.new()
-            loop   = GLib.MainLoop.new(ctx, False)
+            loc = simple.get_location()
+            if loc is None:
+                import time
+                deadline = time.time() + _TIMEOUT
+                while loc is None and time.time() < deadline:
+                    ctx.iteration(may_block=False)
+                    time.sleep(0.05)
+                    loc = simple.get_location()
 
-            def _on_notify(*_):
-                loop.quit()
-
-            ctx.push_thread_default()
-            try:
-                simple = Geoclue.Simple.new_sync(
-                    "com.markxl.jarvis",          # app ID
-                    Geoclue.AccuracyLevel.STREET, # street-level accuracy
-                    None,                          # no cancellable
-                )
-                simple.connect("notify::location", _on_notify)
-
-                loc = simple.get_location()
-                if loc is None:
-                    # Wait for the first fix (up to _TIMEOUT seconds)
-                    import time
-                    deadline = time.time() + _TIMEOUT
-                    while loc is None and time.time() < deadline:
-                        ctx.iteration(may_block=False)
-                        time.sleep(0.05)
-                        loc = simple.get_location()
-
-                if loc:
-                    result.append((
-                        loc.get_property("latitude"),
-                        loc.get_property("longitude"),
-                    ))
-            finally:
-                ctx.pop_thread_default()
-        except Exception as exc:
-            print(f"[Location] GeoClue2 error: {exc}")
+            if loc:
+                print(f"{loc.get_property('latitude')},{loc.get_property('longitude')}")
         finally:
-            done.set()
-
-    t = threading.Thread(target=_worker, daemon=True)
-    t.start()
-    done.wait(timeout=_TIMEOUT + 2)
-
-    return result[0] if result else None
+            ctx.pop_thread_default()
+    except Exception as exc:
+        print(f"[Location] GeoClue2 error: {exc}", file=sys.stderr)
 
 
 # ── Method 2: NetworkManager (nmcli) — WiFi AP → geolocation ──────────────
@@ -347,3 +373,9 @@ def _log(message: str, player=None) -> None:
             player.write_log(f"JARVIS: {message}")
         except Exception:
             pass
+
+
+if __name__ == "__main__":
+    # Child-process entry point for the isolated GeoClue2 probe.
+    if "--geoclue-probe" in sys.argv:
+        _geoclue2_probe()

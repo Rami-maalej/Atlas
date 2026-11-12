@@ -108,7 +108,9 @@ def use_tool(parameters: dict, player=None) -> str:
     tool = (parameters.get("tool") or "").strip().lower()
     args = (parameters.get("args") or parameters.get("target") or parameters.get("query") or "").strip()
 
-    if not tool or tool not in _KNOWN_TOOLS:
+    if not tool:
+        return "Which system tool should I run? For example, say 'ping google.com' or 'curl https://google.com'."
+    if tool not in _KNOWN_TOOLS:
         return "I don't know that tool. I can use nmap, ping, traceroute, netstat, dig, whois, curl, ssh, git, docker and more."
 
     is_win = platform.system().lower() == "windows"

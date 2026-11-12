@@ -2,16 +2,13 @@ import json
 import sys
 from pathlib import Path
 
-
-def get_base_dir() -> Path:
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent
-    return Path(__file__).resolve().parent.parent
+from core.paths import base_dir as get_base_dir
+from core.paths import config_dir, config_path
 
 
 BASE_DIR    = get_base_dir()
-CONFIG_DIR  = BASE_DIR / "config"
-CONFIG_FILE = CONFIG_DIR / "api_keys.json"
+CONFIG_DIR  = config_dir()
+CONFIG_FILE = config_path("api_keys.json")
 
 
 def ensure_config_dir() -> None:

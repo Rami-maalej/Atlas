@@ -9,10 +9,11 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
+from core.paths import memory_path
 
 logger = logging.getLogger("forensics")
 
-CACHE_PATH = Path(__file__).resolve().parent.parent / "memory" / "forensics_cache.json"
+CACHE_PATH = memory_path("forensics_cache.json")
 _lock = threading.Lock()
 
 

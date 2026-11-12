@@ -28,9 +28,11 @@ from threading import RLock
 
 logger = logging.getLogger("jarvis.memory")
 
-BASE_DIR    = Path(__file__).resolve().parent.parent
-MEMORY_DIR  = BASE_DIR / "memory"
-EPISODES_PATH = MEMORY_DIR / "episodes.json"
+from core.paths import memory_dir, memory_path
+
+BASE_DIR    = memory_dir().parent
+MEMORY_DIR  = memory_dir()
+EPISODES_PATH = memory_path("episodes.json")
 _lock       = RLock()  # module-level guard (reentrant)
 
 # ── In-memory episode cache (avoid disk reads on every turn) ────────────
@@ -62,6 +64,18 @@ def _save_episodes() -> None:
     )
 
 
+def flush_episodes() -> None:
+    """Write the episodic buffer to disk.
+
+    Called during shutdown so the next launch starts with the full history
+    instead of only the turns that happened to be flushed along the way.
+    """
+    with _lock:
+        if not _EPISODES_LOADED:
+            _load_episodes()
+        _save_episodes()
+
+
 def record_episode(user_text: str, assistant_text: str,
                    mode: str = "conversation") -> None:
     """Log one conversation turn — JARVIS episodic memory."""
@@ -76,6 +90,12 @@ def record_episode(user_text: str, assistant_text: str,
         _load_episodes()
         _EPISODES.append(episode)
         _save_episodes()
+    # The vault journal is the readable twin of the episodic buffer.
+    try:
+        from actions.obsidian_vault import append_journal
+        append_journal(user_text, assistant_text)
+    except Exception:
+        pass
 
 
 def recent_episodes(n: int = 5) -> list[dict]:
@@ -101,9 +121,13 @@ def format_episode_recall(query: str, top_k: int = 4) -> str:
     if not eps:
         return ""
     q = query.lower()
+    recent = eps[-min(3, top_k):] if top_k > 0 else []
+    recent_ids = {id(ep) for ep in recent}
     # simple keyword overlap + recency weighting
     scored: list[tuple[float, dict]] = []
     for ep in eps[-300:]:
+        if id(ep) in recent_ids:
+            continue
         if not q:
             score = 0.1
         else:
@@ -114,9 +138,8 @@ def format_episode_recall(query: str, top_k: int = 4) -> str:
             score = hit / max(len(words), 1)
         scored.append((score, ep))
     scored.sort(key=lambda t: -t[0])
-    picks = scored[:top_k]
-    if not picks:
-        picks = [(0.1, e) for e in eps[-2:]]
+    picks = [(0.1, ep) for ep in recent]
+    picks.extend(scored[:max(0, top_k - len(picks))])
     lines = []
     for _, ep in picks:
         lines.append(f"- [{ep['t']}] You: {ep['u']}\n  Me:  {ep['a'][:220]}")
@@ -137,7 +160,7 @@ def format_human_recall(query: str, top_k: int = 5,
     prompt budget on every single turn.
     """
     from memory.memory_manager import load_memory, format_memory_for_prompt
-    from memory.vector_memory  import get_relevant_context, search_conversation
+    from memory.vector_memory  import get_relevant_context, recent_conversations, search_conversation
 
     parts: list[str] = []
 
@@ -166,8 +189,19 @@ def format_human_recall(query: str, top_k: int = 5,
                 )
             parts.append("[PAST CONVERSATIONS]\n" + "\n".join(lines))
 
+    # Recent conversation recall does not depend on embeddings being available.
+    recent = recent_conversations(limit=8)
+    if recent:
+        lines = []
+        for item in recent:
+            lines.append(
+                f"- You: {str(item.get('user', ''))[:200]}\n"
+                f"  Atlantis: {str(item.get('assistant', ''))[:240]}"
+            )
+        parts.append("[RECENT CONVERSATIONS]\n" + "\n".join(lines))
+
     # 4. Recent episodes (short-term / working memory)
-    rec = format_episode_recall(query, top_k=2)
+    rec = format_episode_recall(query, top_k=4)
     if rec:
         parts.append(f"[RECENT EPISODES]\n{rec}")
 

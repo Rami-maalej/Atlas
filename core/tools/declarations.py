@@ -267,15 +267,15 @@ TOOL_DECLARATIONS = [
             "type": "OBJECT",
             "properties": {
                 "action":      {"type": "STRING", "description": "list | create_file | create_folder | delete | move | copy | rename | read | write | find | largest | disk_usage | organize_desktop | info | compress | extract | download | edit"},
-                "path":        {"type": "STRING", "description": "File/folder path or shortcut: desktop, downloads, documents, home, or URL for download action"},
+                "path":        {"type": "STRING", "description": "For write/create_file, use a full target file path or a folder paired with name/file_name. For move/copy, use the source folder. Folder shortcuts: desktop, downloads, documents, home."},
                 "destination": {"type": "STRING", "description": "Destination path for move/copy, or extract destination"},
                 "new_name":    {"type": "STRING", "description": "New name for rename"},
                 "content":     {"type": "STRING", "description": "Content for create_file/write"},
-                "name":        {"type": "STRING", "description": "File name to search for"},
+                "name":        {"type": "STRING", "description": "Filename for create_file/write or source item for move/copy/read/rename/delete; for find, this is the search term."},
                 "extension":   {"type": "STRING", "description": "File extension to search"},
                 "count":       {"type": "INTEGER", "description": "Number of results for largest"},
                 "url":         {"type": "STRING", "description": "URL to download from (for download action)"},
-                "file_name":   {"type": "STRING", "description": "Output filename for download action"},
+                "file_name":   {"type": "STRING", "description": "Output filename for download; accepted as filename alias for create_file/write/move/copy/read/rename/delete."},
                 "format":      {"type": "STRING", "description": "Archive format for compress: zip, tar, tar.gz, tgz (default: zip)"},
                 "archive_name":{"type": "STRING", "description": "Output archive name for compress action"},
                 "old_string":  {"type": "STRING", "description": "Text to replace (for edit action)"},
@@ -538,8 +538,8 @@ TOOL_DECLARATIONS = [
         "name": "maps",
         "description": (
             "Geocoding, distance, coordinates, and timezone lookup using OpenStreetMap Nominatim + free APIs. "
-            "Call this to find a place's coordinates, get an address, calculate distance, or find what time/timezone it is in a city. "
-            "Examples: where is ISIMS, how far is Sfax from Tunis, what is the time zone in Tokyo, what time is it in Paris."
+            "Always provide an action. For geocode/coords/timezone, include query; for distance, include origin and destination "
+            "or a query such as 'Sfax to Tunis'."
         ),
         "parameters": {
             "type": "OBJECT",
@@ -549,7 +549,7 @@ TOOL_DECLARATIONS = [
                 "origin": {"type": "STRING", "description": "Starting place name (for distance with separate params)"},
                 "destination": {"type": "STRING", "description": "Destination place name (for distance with separate params)"},
             },
-            "required": []
+            "required": ["action"]
         }
     },
     {
@@ -1134,7 +1134,7 @@ TOOL_DECLARATIONS = [
     },
     {
         "name": "context",
-        "description": "LOCAL system context only — shows what JARVIS knows about current app, battery, meeting status, git status, and other real-time plugin data. Does NOT search the web or answer factual questions. Use web_search for questions about APIs, documentation, or any external topic.",
+        "description": "LOCAL live system context only — current app, battery, meeting status, git status, and other real-time plugin data. This is not the user's profile or conversation memory; do NOT use it for 'what do you know about me?' or personal-history questions. Those are answered from the user profile and recent conversation context. Does NOT search the web or answer factual questions.",
         "parameters": {
             "type": "OBJECT",
             "properties": {
@@ -1460,6 +1460,8 @@ def _convert_props(props: dict) -> dict:
     out = {}
     for k, v in props.items():
         nv: dict = {"type": _convert_type(v.get("type", "string"))}
+        if v.get("description"):
+            nv["description"] = v["description"]
         if "items" in v and isinstance(v["items"], dict):
             nv["items"] = {"type": _convert_type(v["items"].get("type", "string"))}
         out[k] = nv

@@ -9,6 +9,8 @@ import threading
 import time
 from pathlib import Path
 
+from core.lifecycle import mark_child_env
+
 _PARENT = Path(__file__).resolve().parent
 _BACKEND_DIR = _PARENT / "realtime_tutor" / "backend"
 _FRONTEND_DIR = _PARENT / "realtime_tutor" / "frontend" / "out"
@@ -67,6 +69,7 @@ def realtime_tutor(
         cwd=str(_BACKEND_DIR),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
+        env=mark_child_env(),
     )
 
     if not _wait_for_server(_tutor_port):

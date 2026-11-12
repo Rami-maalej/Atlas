@@ -3,7 +3,9 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
-TASKS_PATH = Path(__file__).resolve().parent.parent / "memory" / "tasks.json"
+from core.paths import memory_path
+
+TASKS_PATH = memory_path("tasks.json")
 _lock = threading.Lock()
 
 # ── Tasks ─────────────────────────────────────────────────────────────

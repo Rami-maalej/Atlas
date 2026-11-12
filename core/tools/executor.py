@@ -62,6 +62,13 @@ import actions.archive_tools as _arch
 import actions.wiki_tools as _wiki
 import actions.system_health as _health
 import actions.news_pro as _news_pro
+from actions.image_edit import edit_image as _image_edit_action
+from actions.install_tool import install_tool as _install_tool_action
+from actions.doc_tools import create_document as _create_document_action
+from actions.pdf_reader import read_pdf as _read_pdf_action
+from actions.screenshot_ocr import screen_vision as _screen_read_action
+from actions.network_tools import run_speedtest as _speedtest_action
+from actions.fast_browser import fast_browser as _fast_browser_action
 
 from actions.qr_tools import qr_generate as _qr_gen, qr_scan as _qr_scan
 from actions.clipboard_mgr import clipboard_read as _clip_read, clipboard_write as _clip_write
@@ -101,7 +108,12 @@ from actions.hermes_agent import hermes_task as hermes_agent_task
 from agent.agent_manager import get_agent_manager
 from core.scheduler import get_scheduler
 from skills.skill_loader import get_active_skill_context, list_skills, reload_skills
-from memory.memory_manager import load_memory, update_memory, format_memory_for_prompt
+from memory.memory_manager import (
+    load_memory,
+    update_memory,
+    format_memory_for_prompt,
+    normalize_category,
+)
 from memory.vector_memory import store_memory, store_conversation, get_relevant_context, get_memory_count, search_memory
 from core.safe_math import safe_math as calculate
 from core.fast_browser import FastBrowser, get_fast_browser
@@ -136,7 +148,10 @@ def execute_tool(ui, name: str, args: dict,
 
     # save_memory is handled silently
     if name == "save_memory":
-        category = args.get("category", "notes")
+        # Normalize the category: the LLM emits "Preferences", "Name", "prefs"
+        # and friends, and an off-canonical key would be saved but never read
+        # back by the prompt builder.
+        category = normalize_category(args.get("category", "notes"))
         key      = args.get("key", "")
         value    = args.get("value", "")
         if key and value:
@@ -266,6 +281,10 @@ def execute_tool(ui, name: str, args: dict,
         elif name == "computer_settings":
             r = computer_settings(parameters=args, response=None, player=ui)
             result = r or "Done."
+
+        elif name == "use_tool":
+            from actions.sys_tool import use_tool
+            result = use_tool(parameters=args, player=ui)
 
         elif name == "desktop_control":
             r = desktop_control(parameters=args, player=ui)
@@ -442,9 +461,8 @@ def execute_tool(ui, name: str, args: dict,
 
             def _shutdown():
                 import time
-                speak("Goodbye.")
-                time.sleep(2.5)
-                ui._win._quit_sig.emit()
+                from core.lifecycle import shutdown as _lifecycle_shutdown
+                _lifecycle_shutdown(ui, speak_text="Goodbye.")
 
             threading.Thread(target=_shutdown, daemon=True).start()
             return "Shutting down."
@@ -1254,7 +1272,7 @@ def execute_tool(ui, name: str, args: dict,
                         result = "No matching context entries."
                 elif action == "keys":
                     ctx = get_all_context()
-                    result = f"Context keys ({len(ctx)}): {', '.join(sorted(ctx.keys()))}" if ctx else "No context data."
+                    result = f"Context keys ({len(ctx)}): {', '.join(sorted(ctx.keys()))}" if ctx else "I don't have any live system context to report yet."
                 else:
                     result = f"Unknown context action: {action}"
             except Exception as e:
@@ -1472,6 +1490,96 @@ def execute_tool(ui, name: str, args: dict,
             result = _qr_gen(parameters=args, player=ui)
         elif name == "qr_scan":
             result = _qr_scan(parameters=args, player=ui)
+
+        # ── Multi-action intent handlers ─────────────────────────────────
+        # The intent router groups several tools under one handler name
+        # (e.g. "qr_tools" → qr_generate / qr_scan).  These branches map the
+        # group name onto the right tool based on the requested action.
+        elif name == "qr_tools":
+            _act = (args.get("action") or "").strip().lower()
+            if _act in ("scan", "read", "lire", "scanner"):
+                result = _qr_scan(parameters=args, player=ui)
+            else:
+                result = _qr_gen(parameters=args, player=ui)
+        elif name == "hash_tools":
+            _act = (args.get("action") or "").strip().lower()
+            if _act in ("file", "fichier") or args.get("path") or args.get("file"):
+                result = _hash_file(parameters=args, player=ui)
+            else:
+                result = _hash_str(parameters=args, player=ui)
+        elif name == "dictionary_tools":
+            _act = (args.get("action") or "").strip().lower()
+            if _act in ("synonym", "synonyms", "synonyme", "synonymes"):
+                result = _word_syn(parameters=args, player=ui)
+            elif _act in ("example", "examples", "exemple", "exemples"):
+                result = _word_ex(parameters=args, player=ui)
+            else:
+                result = _word_def(parameters=args, player=ui)
+        elif name == "math_solver":
+            result = _solve_math(parameters=args, player=ui)
+        elif name == "random_tools":
+            _act = (args.get("action") or "").strip().lower()
+            if _act in ("dice", "roll", "lancer", "des"):
+                result = _dice_roll(parameters=args, player=ui)
+            elif _act in ("coin", "flip", "pile", "face"):
+                result = _coin_flip(parameters=args, player=ui)
+            else:
+                result = _rand_pick(parameters=args, player=ui)
+        elif name == "notes_tools":
+            _act = (args.get("action") or "").strip().lower()
+            if _act in ("find", "search", "chercher", "recherche"):
+                result = _note_find(parameters=args, player=ui)
+            elif _act in ("list", "lister"):
+                result = _note_list(parameters=args, player=ui)
+            else:
+                result = _note_save(parameters=args, player=ui)
+        elif name == "clipboard_mgr":
+            _act = (args.get("action") or "").strip().lower()
+            if _act in ("write", "copy", "ecrire", "write_clipboard"):
+                result = _clip_write(parameters=args, player=ui)
+            else:
+                result = _clip_read(parameters=args, player=ui)
+        elif name == "archive_tools":
+            _act = (args.get("action") or "").strip().lower()
+            if _act in ("extract", "unzip", "decompresser", "extraire"):
+                result = _arch.extract_archive(parameters=args, player=ui)
+            else:
+                result = _arch.create_archive(parameters=args, player=ui)
+        elif name == "process_mgr":
+            _act = (args.get("action") or "").strip().lower()
+            if _act in ("kill", "terminate", "tuer", "stop"):
+                result = _proc.kill_process(parameters=args, player=ui)
+            else:
+                result = _proc.list_processes(parameters=args, player=ui)
+        elif name == "translator":
+            result = _trans.translate_text(parameters=args, player=ui)
+        elif name == "media_downloader":
+            result = _dl.download_media(parameters=args, player=ui)
+        elif name == "wiki_tools":
+            result = _wiki.search_wikipedia(parameters=args, player=ui)
+        elif name == "system_health":
+            result = _health.get_system_health(parameters=args, player=ui)
+        elif name == "news_pro":
+            result = _news_pro.get_latest_news(parameters=args, player=ui)
+        elif name == "image_edit":
+            result = _image_edit_action(parameters=args, player=ui)
+        elif name == "install_tool":
+            result = _install_tool_action(parameters=args, player=ui)
+        elif name == "create_document":
+            result = _create_document_action(parameters=args, player=ui)
+        elif name == "read_pdf":
+            result = _read_pdf_action(parameters=args, player=ui)
+        elif name == "screen_ocr":
+            result = _screen_read_action(parameters=args, player=ui)
+        elif name == "speedtest":
+            result = _speedtest_action(parameters=args, player=ui)
+        elif name == "play_music":
+            # No dedicated music module — YouTube is the playback path.
+            result = youtube_video(parameters=args, player=ui)
+        elif name == "job_search":
+            result = job_search_action(parameters=args, player=ui)
+        elif name == "fast_browser":
+            result = _fast_browser_action(parameters=args, player=ui)
         elif name == "screen_find_text":
             result = _screen_find(parameters=args, player=ui)
         elif name == "battery_status":

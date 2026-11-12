@@ -4,11 +4,12 @@ import threading
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
+from core.paths import memory_path
 
 logger = logging.getLogger("timer_scheduler")
 
 _BASE_DIR = Path(__file__).resolve().parent.parent
-_SCHED_PATH = _BASE_DIR / "memory" / "scheduled_tasks.json"
+_SCHED_PATH = memory_path("scheduled_tasks.json")
 _lock = threading.Lock()
 
 _timers: list[dict] = []

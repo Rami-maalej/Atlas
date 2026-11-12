@@ -5,10 +5,11 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from core.paths import memory_path
 
 logger = logging.getLogger("goal_engine")
 
-GOALS_PATH = Path(__file__).resolve().parent.parent / "memory" / "goals.json"
+GOALS_PATH = memory_path("goals.json")
 _lock = threading.Lock()
 
 PHASES = ["course", "practice", "project", "review"]

@@ -209,9 +209,27 @@ _INTENTS: list[dict[str, Any]] = [
         "patterns": [
             r'hash\s+this\s+text\s*:\s*.+',
             r'sha256\s+of\s+file\s+.+',
-            r'md5\s+of\s+.+',
         ],
         "handler": "hash_tools",
+        "requires_ai": False,
+    },
+    {
+        "name": "dictionary_tools",
+        "subsystem": "tools",
+        "patterns": [
+            r'what\s+does\s+.+\s+mean',
+            r'what\s+is\s+the\s+meaning\s+of\s+.+',
+            r'define\s+.+',
+            r'definition\s+of\s+.+',
+            r'synonyms?\s+(for\s+|of\s+)?\w+',
+            r'\w+\s+synonyms?',
+            r'que\s+veut\s+dire\s+.+',
+            r'c\'est\s+quoi\s+.+',
+            r'definir\s+.+',
+            r'synonymes?\s+(de\s+)?\w+',
+            r'example\s+of\s+(the\s+word\s+)?\w+',
+        ],
+        "handler": "dictionary_tools",
         "requires_ai": False,
     },
     {
@@ -955,7 +973,10 @@ _INTENTS: list[dict[str, Any]] = [
             r"(turn\s+(up|down|on|off))\s+(the\s+)?(volume|sound|brightness)",
             r"(increase|decrease)\s+(the\s+)?(volume|brightness)",
             r"^set\s+(the\s+)?(volume|brightness)\s+to\s+(\d+)",
-            r"^(mute|unmute|lock|shutdown|restart|sleep)",
+            r"^(mute|unmute|lock|sleep)",
+            # Powering off / restarting the MACHINE must be said explicitly.
+            # A bare "shutdown" means "close the assistant" (shutdown_jarvis).
+            r"^(shut\s*down|power\s*off|restart|reboot)\s+(the\s+)?(computer|pc|machine|system)",
             r"(screenshot|screen\s+shot)",
             r"(speed\s*test|internet\s+speed|check\s+(my\s+)?(internet|connection|network)\s+(speed|connection))",
         ],
@@ -1485,10 +1506,11 @@ _INTENTS: list[dict[str, Any]] = [
         "name": "shutdown_jarvis",
         "subsystem": "system",
         "patterns": [
-            r"^(shut\s*(down|off)|goodbye|bye|exit|quit|stop\s+(yourself|jarvis|it|now))",
-            r"(shut\s*(down|off)|exit|quit)\s+(jarvis|the\s+assistant)",
+            r"^(shut\s*(down|off)|goodbye|bye|exit|quit|stop\s+(yourself|jarvis|ultron|atlantis|it|now))",
+            r"(shut\s*(down|off)|exit|quit)\s+(jarvis|ultron|atlantis|the\s+assistant)",
             r"(go\s+(to\s+)?)?(sleep|offline)",
             r"shut\s+(yourself|it)\s+down",
+            r"(close|kill|terminate)\s+(everything|all|it|yourself)",
         ],
         "handler": "shutdown_jarvis",
         "params": {},
@@ -1804,6 +1826,24 @@ _INTENTS: list[dict[str, Any]] = [
 ]
 
 
+# Names the assistant answers to.  The project is "Ultron", the assistant
+# introduces itself as "Atlantis", and older prompts still say "Jarvis" —
+# all of them must be stripped before routing so "ultron shutdown" and
+# "jarvis shutdown" behave identically.
+_WAKE_WORDS = ("ultron", "atlantis", "jarvis")
+
+_WAKE_WORD_RE = re.compile(
+    r"^(?:hey\s+|ok\s+|okay\s+)?(?:" + "|".join(_WAKE_WORDS) + r")[\s,.:\-]+"
+)
+
+
+def _strip_wake_word(text: str) -> str:
+    """Remove a leading wake word so the rest of the sentence can be routed."""
+    if not text:
+        return text
+    return _WAKE_WORD_RE.sub("", text).strip()
+
+
 class IntentRouterResult:
     def __init__(
         self,
@@ -1850,52 +1890,19 @@ class IntentRouter:
         Returns IntentRouterResult — check .matched before using.
         If no match, .requires_ai is True (fall back to LLM).
         """
-        # Priority: Mega Router for powerful tools
-        mega_res = mega_route(text)
-        if mega_res:
-            intent_name = mega_res["intent"]
-            # Find the intent dict for metadata
-            intent_dict = next((i for i in self._intents if i["name"] == intent_name), None)
-            if intent_dict:
-                return IntentRouterResult(
-                    matched=True,
-                    intent_name=intent_name,
-                    subsystem=intent_dict.get("subsystem", "tools"),
-                    handler_name=intent_dict.get("handler", intent_name),
-                    handler_params=mega_res["params"],
-                    requires_ai=intent_dict.get("requires_ai", False),
-                    confidence=mega_res["confidence"]
-                )
-
         t_lower = text.lower().strip()
-        # Strip wake-word prefix so "jarvis open map" → "open map"
-        t_lower = re.sub(r"^(hey\s+)?jarvis[\s,:-]+", "", t_lower).strip()
+        # Strip the wake-word prefix so "ultron open map" → "open map".
+        # Every name the assistant answers to is accepted: the project is
+        # "Ultron", the assistant self-describes as "Atlantis", and older
+        # prompts still say "Jarvis".
+        t_lower = _strip_wake_word(t_lower)
         start = time.time()
 
-        # First pass: check capability registry patterns
-        try:
-            cap_matches = find_matches(t_lower)
-            if cap_matches:
-                cap = cap_matches[0]
-                name = cap["name"]
-                subsystem = cap.get("category", "general")
-                logger.debug(
-                    "IntentRouter: capability match '%s' in %.1fms",
-                    name, (time.time() - start) * 1000,
-                )
-                return IntentRouterResult(
-                    matched=True,
-                    intent_name=name,
-                    subsystem=subsystem,
-                    handler_name=name,
-                    handler_params={},
-                    requires_ai=cap.get("requires_ai", False),
-                    confidence=0.8,
-                )
-        except Exception as e:
-            logger.debug("IntentRouter capability check error: %s", e)
-
-        # Second pass: hardcoded intent patterns
+        # ── Pass 1: hardcoded intent patterns (precise) ────────────────────
+        # These patterns are anchored and specific, so they are the most
+        # trustworthy signal.  The mega router (pass 3) uses loose keyword
+        # matching and used to run FIRST, which hijacked commands like
+        # "flip a coin" (→ image_edit) and "set timer 5 minutes" (→ check_time).
         best_match = None
         best_score = 0
         best_params = {}
@@ -1931,46 +1938,97 @@ class IntentRouter:
                 except re.error:
                     continue
 
-        elapsed = (time.time() - start) * 1000
-
         if best_match and best_score > 0.2:
-            requires_ai = best_match.get("requires_ai", True)
-            # Compound open_app requests (e.g. "open chrome and register...")
-            # must go to the LLM even if score is above threshold.
-            if not requires_ai and best_match["name"] == "open_app":
-                _app_name = best_params.get("app_name", "")
-                _compound = any(
-                    kw in _app_name.lower()
-                    for kw in [
-                        " and ", " or ", " then ", " also ",
-                        " to ", " in it", " in the", " for me",
-                        " register", " signup", " sign up",
-                        " create ", " login", " log in",
-                        " make ", " open ",
-                    ]
+            return self._result_for(best_match, best_params, best_score, text)
+
+        # ── Pass 2: capability registry patterns ───────────────────────────
+        try:
+            cap_matches = find_matches(t_lower)
+            if cap_matches:
+                cap = cap_matches[0]
+                name = cap["name"]
+                subsystem = cap.get("category", "general")
+                logger.debug(
+                    "IntentRouter: capability match '%s' in %.1fms",
+                    name, (time.time() - start) * 1000,
                 )
-                if _compound:
-                    requires_ai = True
+                return IntentRouterResult(
+                    matched=True,
+                    intent_name=name,
+                    subsystem=subsystem,
+                    handler_name=name,
+                    handler_params={},
+                    requires_ai=cap.get("requires_ai", False),
+                    confidence=0.8,
+                )
+        except Exception as e:
+            logger.debug("IntentRouter capability check error: %s", e)
 
-            logger.debug(
-                "IntentRouter: '%s' -> %s (%.1fms, conf=%.2f)",
-                text, best_match["name"], elapsed, best_score,
-            )
-            return IntentRouterResult(
-                matched=True,
-                intent_name=best_match["name"],
-                subsystem=best_match["subsystem"],
-                handler_name=best_match["handler"],
-                handler_params={**best_match.get("params", {}), **best_params},
-                requires_ai=requires_ai,
-                confidence=best_score,
-            )
+        # ── Pass 3: mega router (loose keyword fallback) ──────────────────
+        # Only reached when the precise patterns found nothing.  It also
+        # covers the few tools that live only here (clone_and_run,
+        # list_apps, opencode_run).
+        mega_res = mega_route(text)
+        if mega_res:
+            intent_name = mega_res["intent"]
+            intent_dict = next((i for i in self._intents if i["name"] == intent_name), None)
+            if intent_dict:
+                return IntentRouterResult(
+                    matched=True,
+                    intent_name=intent_name,
+                    subsystem=intent_dict.get("subsystem", "tools"),
+                    handler_name=intent_dict.get("handler", intent_name),
+                    handler_params=mega_res["params"],
+                    requires_ai=intent_dict.get("requires_ai", False),
+                    confidence=mega_res["confidence"]
+                )
 
+        elapsed = (time.time() - start) * 1000
         logger.debug("IntentRouter: no match for '%s' (%.1fms)", text, elapsed)
         return IntentRouterResult(
             matched=False,
             requires_ai=True,
             confidence=0.0,
+        )
+
+    def _result_for(
+        self,
+        intent: dict,
+        params: dict,
+        score: float,
+        text: str,
+    ) -> IntentRouterResult:
+        """Build the routing result for a matched intent."""
+        requires_ai = intent.get("requires_ai", True)
+        # Compound open_app requests (e.g. "open chrome and register...")
+        # must go to the LLM even if score is above threshold.
+        if not requires_ai and intent["name"] == "open_app":
+            _app_name = params.get("app_name", "")
+            _compound = any(
+                kw in _app_name.lower()
+                for kw in [
+                    " and ", " or ", " then ", " also ",
+                    " to ", " in it", " in the", " for me",
+                    " register", " signup", " sign up",
+                    " create ", " login", " log in",
+                    " make ", " open ",
+                ]
+            )
+            if _compound:
+                requires_ai = True
+
+        logger.debug(
+            "IntentRouter: '%s' -> %s (conf=%.2f)",
+            text, intent["name"], score,
+        )
+        return IntentRouterResult(
+            matched=True,
+            intent_name=intent["name"],
+            subsystem=intent["subsystem"],
+            handler_name=intent["handler"],
+            handler_params={**intent.get("params", {}), **params},
+            requires_ai=requires_ai,
+            confidence=score,
         )
 
     def _extract_params(

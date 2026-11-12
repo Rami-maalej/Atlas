@@ -53,7 +53,7 @@ def _badge(pid: str, status: dict, cfg: dict) -> tuple[str, str]:
     is_local = p and p["category"] in ("local", "both")
     has_key = bool((cfg.get(p["key_field"]) or "").strip()) if p and p.get("key_field") else True
     reachable = bool(status.get("reachable", False))
-    cur = (cfg.get("llm_provider") or "ollama").strip().lower().replace("-", "_")
+    cur = (cfg.get("llm_provider") or "nvidia-nim").strip().lower().replace("-", "_")
     if pid == cur:
         return ("Current", "#7ae07a")   # green
     if p and p.get("key_field") and not has_key:
@@ -71,6 +71,7 @@ class ProviderOverlay(QWidget):
     # Emits JSON: {"llm_provider": ..., "llm_model": ..., "llm_url": ...,
     #             "<key_field>": ..., "llm_api_key": ...}
     done = pyqtSignal(str)
+    ollama_models_requested = pyqtSignal()
 
     def __init__(self, parent=None, initial: dict | None = None):
         super().__init__(parent)
@@ -195,7 +196,7 @@ class ProviderOverlay(QWidget):
     def _build_card(self, p: dict) -> QWidget:
         C = _C()
         pid = p["id"]
-        cur_provider = (self._init.get("llm_provider") or "ollama").strip().lower().replace("-", "_")
+        cur_provider = (self._init.get("llm_provider") or "nvidia-nim").strip().lower().replace("-", "_")
         is_active = (pid == cur_provider)
         is_local = p["category"] in ("local", "both")
         key_field = p.get("key_field")
@@ -331,6 +332,20 @@ class ProviderOverlay(QWidget):
         btn_row = QHBoxLayout()
         btn_row.setContentsMargins(0, 2, 0, 0)
         btn_row.setSpacing(6)
+        if pid == "ollama":
+            manage_btn = QPushButton("Manage models")
+            manage_btn.setFont(QFont("Courier New", 7, QFont.Weight.Bold))
+            manage_btn.setFixedHeight(24)
+            manage_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            manage_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background: transparent; color: {C.TEXT_MED};
+                    border: 1px solid #333333; padding: 0px 6px;
+                }}
+                QPushButton:hover {{ color: {C.TEXT}; border: 1px solid {C.ACC}; background: {C.PRI_GHO}; }}
+            """)
+            manage_btn.clicked.connect(self.ollama_models_requested.emit)
+            btn_row.addWidget(manage_btn)
         refresh_btn = QPushButton("Refresh models")
         refresh_btn.setFont(QFont("Courier New", 7, QFont.Weight.Bold))
         refresh_btn.setFixedHeight(24)
@@ -378,7 +393,11 @@ class ProviderOverlay(QWidget):
 
         # ── Actions ───────────────────────────────────────────────────────
         def _on_use():
+            # "USE" means "switch to this provider" — so select it AND apply
+            # it right away.  Previously it only highlighted the card, which
+            # made it look like nothing happened.
             self._select_provider(pid)
+            self._submit()
         def _on_refresh():
             self._refresh_models(pid)
         def _on_test():
@@ -406,11 +425,17 @@ class ProviderOverlay(QWidget):
             if m not in seen:
                 seen.add(m)
                 combo.addItem(m, userData=m)
-        want = self._selected_model if self._selected_pid == pid else ""
+        is_selected = (self._selected_pid == pid)
+        want = self._selected_model if is_selected else ""
         if not want:
-            want = (self._discovery.get(pid, {}).get("default")
-                    or self._init.get("llm_model")
-                    or (models[0] if models else ""))
+            want = self._discovery.get(pid, {}).get("default") or ""
+        if not want and is_selected:
+            # Only the active provider may inherit the configured model —
+            # reusing it for another provider would select a model that
+            # does not exist in that provider's list.
+            want = self._init.get("llm_model") or ""
+        if not want:
+            want = models[0] if models else ""
         idx = combo.findText(want)
         if idx < 0:
             for i in range(combo.count()):
@@ -418,7 +443,7 @@ class ProviderOverlay(QWidget):
                     idx = i
                     break
         combo.setCurrentIndex(max(idx, 0))
-        if want:
+        if want and is_selected:
             self._selected_model = want
 
     def _select_provider(self, pid: str) -> None:
@@ -503,7 +528,7 @@ class ProviderOverlay(QWidget):
         from core.llm_provider_detector import discover_all
         self._discovery = discover_all(self._init, on_status=self._on_provider_status)
         if not self._selected_pid:
-            cur = (self._init.get("llm_provider") or "ollama").strip().lower().replace("-", "_")
+            cur = (self._init.get("llm_provider") or "nvidia-nim").strip().lower().replace("-", "_")
             if cur in self._cards:
                 self._select_provider(cur)
             else:

@@ -4,18 +4,14 @@ import numpy as np
 import requests
 from datetime import datetime
 from pathlib import Path
-import sys
 from core.llm_client import resolve_llm_url
+from core.paths import base_dir as get_base_dir
+from core.paths import memory_path
 
 _OLLAMA_URL = "http://localhost:11434"
 
-def get_base_dir() -> Path:
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent
-    return Path(__file__).resolve().parent.parent
-
 BASE_DIR = get_base_dir()
-VEC_PATH = BASE_DIR / "memory" / "vector_store.json"
+VEC_PATH = memory_path("vector_store.json")
 _lock = threading.Lock()
 
 # ── In-process vector-store cache ───────────────────────────────────────────────
@@ -203,8 +199,6 @@ def search_memory(query: str, top_k: int = 5, threshold: float = 0.3) -> list[di
 def store_conversation(user_text: str, assistant_text: str) -> None:
     full = f"User: {user_text}\nAssistant: {assistant_text}"
     emb = _embed(full)
-    if not emb:
-        return
     with _lock:
         store = _load_store()
         entry = {
@@ -219,6 +213,21 @@ def store_conversation(user_text: str, assistant_text: str) -> None:
         if len(store["conversations"]) > 200:
             store["conversations"] = store["conversations"][-200:]
         _save_store(store)
+
+def recent_conversations(limit: int = 5) -> list[dict]:
+    """Return the latest stored turns in chronological order."""
+    if limit <= 0:
+        return []
+    with _lock:
+        entries = _load_store().get("conversations", [])
+        ordered = sorted(
+            entries,
+            key=lambda item: (item.get("created", ""), float(item.get("id", 0))),
+        )
+        return [
+            {key: value for key, value in item.items() if key != "embedding"}
+            for item in ordered[-limit:]
+        ]
 
 def search_conversation(query: str, top_k: int = 3, threshold: float = 0.25) -> list[dict]:
     query_emb = _embed(query)

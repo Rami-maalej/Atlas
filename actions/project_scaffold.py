@@ -9,6 +9,8 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
+from core.lifecycle import mark_child_env
+
 logger = logging.getLogger("project_scaffold")
 
 WORKSPACE_DIR = Path(__file__).resolve().parent.parent / "workspace"
@@ -46,7 +48,13 @@ def _open_editor(project_dir: Path) -> bool:
     candidates = ["code", "vim", "nano"]
     for cmd in candidates:
         try:
-            subprocess.Popen([cmd, str(project_dir)], shell=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.Popen(
+                [cmd, str(project_dir)],
+                shell=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                env=mark_child_env(),
+            )
             return True
         except Exception:
             continue
@@ -67,7 +75,7 @@ def _run_opencode(project_dir: Path, role: dict, speak: Callable | None = None) 
     prompt_file.write_text(
         f"""Role: {role['label']}
 
-{role['system_prompt']}
+{role["system_prompt"]}
 
 Project is in: {project_dir}
 Your work goes in: {role_dir}
@@ -85,6 +93,7 @@ Start by understanding the project context, then deliver your artifacts.
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         cwd=str(role_dir),
+        env=mark_child_env(),
     )
 
     threading.Thread(target=proc.wait, daemon=True).start()

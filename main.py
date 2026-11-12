@@ -89,6 +89,20 @@ if Path("/usr/bin/xhost").exists():
 def main() -> None:
     from ui import JarvisUI
     from memory.config_manager import load_config
+    from core.startup_progress import PROGRESS
+
+    # Register the boot stages BEFORE the window opens, so the loading
+    # screen renders the full list on its very first paint instead of
+    # filling in afterwards.
+    PROGRESS.add_many([
+        ("config",   "Configuration",       0.5),
+        ("provider", "AI provider",         1.5),
+        ("memory",   "Memory & vault",      1.5),
+        ("stt",      "Speech recognition",  3.0),
+        ("llm",      "Language model",      2.0),
+        ("tts",      "Voice synthesis",     2.5),
+        ("services", "Background services", 1.0),
+    ])
 
     ui = JarvisUI("face.png")
 

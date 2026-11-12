@@ -13,6 +13,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from core.paths import memory_path
 
 
 def _imports():
@@ -21,7 +22,7 @@ def _imports():
     return ImageGrab, Image, pytesseract
 
 
-SCREEN_DIR = Path(__file__).resolve().parent.parent / "memory" / "screens"
+SCREEN_DIR = memory_path("screens")
 
 
 def _ensure_dir() -> Path:

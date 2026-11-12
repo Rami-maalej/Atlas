@@ -355,7 +355,7 @@ def _get_vision_fallback(provider: str, current_model: str) -> str:
 def _call_vision(image_bytes: bytes, mime: str, user_text: str, angle: str = "screen") -> str:
     cfg          = _load_config()
     url          = cfg.get("llm_url", "http://localhost:11434").rstrip("/")
-    provider     = cfg.get("llm_provider", "ollama").strip().lower().replace(" ", "_").replace("-", "_")
+    provider     = cfg.get("llm_provider", "nvidia-nim").strip().lower().replace(" ", "_").replace("-", "_")
 
     # Auto-pick a vision-capable model when the provider's default doesn't support vision
     llm_model = cfg.get("llm_model", "llava").lower()

@@ -78,6 +78,9 @@ def maps_action(parameters: dict | None = None, player=None) -> str:
             return maps_action({"action": "distance", "origin": parts[0].strip(), "destination": parts[1].strip()}, player)
         return 'Usage: "distance from A to B"'
 
+    if action == "distance":
+        return "Which two places should I calculate the distance between?"
+
     if action == "timezone" and query:
         result = _geocode(query)
         if not result:
@@ -116,4 +119,6 @@ def maps_action(parameters: dict | None = None, player=None) -> str:
             return f"Could not find: {query}"
         return f"{result['display_name'].split(',')[0]}: {result['lat']:.4f}°N, {result['lon']:.4f}°E."
 
-    return 'Usage: maps with action="geocode" & query, or action="distance" & origin & destination.'
+    if action in ("geocode", "coords", "timezone"):
+        return "Which place should I look up?"
+    return 'Choose a maps action: "geocode", "coords", "timezone", or "distance".'

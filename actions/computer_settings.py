@@ -73,7 +73,7 @@ def volume_mute():
             capture_output=True)
     else:
         subprocess.run(["pactl", "set-sink-mute", "@DEFAULT_SINK@", "toggle"],
-            capture_output=True)
+            capture_output=True, timeout=2, check=True)
 
 def volume_set(value: int):
     value = max(0, min(100, int(value)))
@@ -199,7 +199,7 @@ def maximize_window():
             subprocess.run(["wmctrl", "-r", ":ACTIVE:", "-b", "add,maximized_vert,maximized_horz"],
                 capture_output=True)
         except Exception:
-            pyautogui.hotkey("super", "up")
+            pass
 
 def snap_left():
     if _OS == "Windows":

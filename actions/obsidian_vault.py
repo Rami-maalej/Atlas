@@ -13,7 +13,8 @@ def _resolve_vault_dir() -> Path:
     env var > ~/Obsidian. Config wins so the assistant and the grok_obsidian_memory
     project can share one vault."""
     try:
-        cfg_path = Path(__file__).resolve().parent.parent / "config" / "api_keys.json"
+        from core.paths import config_path
+        cfg_path = config_path("api_keys.json")
         if cfg_path.exists():
             configured = (json.loads(cfg_path.read_text(encoding="utf-8")).get("obsidian_vault") or "").strip()
             if configured and Path(configured).expanduser().exists():
@@ -124,6 +125,133 @@ def read_note(note_title: str) -> str:
         if q in f.stem.lower():
             return f.read_text(encoding="utf-8", errors="replace")
     return f"No note matching '{note_title}'."
+
+
+# ── Vault as the primary fact store ───────────────────────────────────────
+# Long-term facts live in the vault so they are readable, editable and
+# versionable in Obsidian — not locked inside a JSON blob.  Each category
+# gets one note whose body is a "key: value" table, so a fact saved by the
+# assistant is visible and editable in the app the user already lives in.
+_FACT_NOTES = {
+    "identity":      ("Facts/Identity.md",      "Identity"),
+    "preferences":   ("Facts/Preferences.md",   "Preferences"),
+    "projects":      ("Facts/Projects.md",      "Projects"),
+    "relationships": ("Facts/People.md",        "People"),
+    "wishes":        ("Facts/Wishes.md",        "Wishes"),
+    "notes":         ("Facts/Notes.md",         "Notes"),
+}
+
+
+def _fact_note_path(category: str) -> Path:
+    rel, _label = _FACT_NOTES.get(category, _FACT_NOTES["notes"])
+    return VAULT_DIR / rel
+
+
+def _parse_fact_body(body: str) -> dict[str, str]:
+    """Parse a "key: value" fact table back into a dict."""
+    facts: dict[str, str] = {}
+    for line in body.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or line.startswith("---"):
+            continue
+        if ":" not in line:
+            continue
+        key, _, value = line.partition(":")
+        key = key.strip().lstrip("-").strip()
+        value = value.strip()
+        if key:
+            facts[key] = value
+    return facts
+
+
+def store_facts(category: str, facts: dict[str, str]) -> str:
+    """Write a category's facts into the vault, replacing the note body.
+
+    Returns the note path, or an empty string when the vault is unavailable.
+    """
+    if not facts:
+        return ""
+    try:
+        path = _fact_note_path(category)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        _rel, label = _FACT_NOTES.get(category, _FACT_NOTES["notes"])
+        body = "\n".join(f"{k}: {v}" for k, v in sorted(facts.items()))
+        header = (
+            "---\n"
+            f"title: {label}\n"
+            f"updated: {datetime.now().isoformat()}\n"
+            "tags: [atlantis, memory]\n"
+            "---\n\n"
+            f"# {label}\n\n"
+        )
+        path.write_text(header + body + "\n", encoding="utf-8")
+        logger.info("Facts stored in vault: %s (%d)", path, len(facts))
+        return str(path)
+    except Exception as e:
+        logger.debug("store_facts failed: %s", e)
+        return ""
+
+
+def load_facts() -> dict[str, dict[str, str]]:
+    """Read every category's facts back out of the vault."""
+    out: dict[str, dict[str, str]] = {}
+    try:
+        if not VAULT_DIR.exists():
+            return out
+        for category, (rel, _label) in _FACT_NOTES.items():
+            path = VAULT_DIR / rel
+            if not path.exists():
+                continue
+            text = path.read_text(encoding="utf-8", errors="replace")
+            # Drop the YAML front-matter and the heading line.
+            if text.startswith("---"):
+                parts = text.split("---", 2)
+                text = parts[-1] if len(parts) > 2 else text
+            facts = _parse_fact_body(text)
+            if facts:
+                out[category] = facts
+    except Exception as e:
+        logger.debug("load_facts failed: %s", e)
+    return out
+
+
+# ── Daily journal: the conversation log inside the vault ──────────────────
+_JOURNAL_DIR = "Journal"
+
+
+def append_journal(user_text: str, assistant_text: str) -> str:
+    """Append one conversation turn to today's journal note.
+
+    The journal is what makes "he still remembers everything" true in a way
+    the user can read: every day is one note in the vault, and the notes
+    are searchable by the vault recall.
+    """
+    if not user_text and not assistant_text:
+        return ""
+    try:
+        folder = VAULT_DIR / _JOURNAL_DIR
+        folder.mkdir(parents=True, exist_ok=True)
+        path = folder / f"{datetime.now().strftime('%Y-%m-%d')}.md"
+        if not path.exists():
+            header = (
+                "---\n"
+                f"title: {datetime.now().strftime('%Y-%m-%d')}\n"
+                f"created: {datetime.now().isoformat()}\n"
+                "tags: [atlantis, journal]\n"
+                "---\n\n"
+                f"# {datetime.now().strftime('%Y-%m-%d')}\n\n"
+            )
+            path.write_text(header, encoding="utf-8")
+        stamp = datetime.now().strftime("%H:%M")
+        line = f"- **{stamp}** — You: {user_text.strip()[:500]}\n"
+        if assistant_text.strip():
+            line += f"  - Atlantis: {assistant_text.strip()[:1000]}\n"
+        with path.open("a", encoding="utf-8") as fh:
+            fh.write(line)
+        return str(path)
+    except Exception as e:
+        logger.debug("append_journal failed: %s", e)
+        return ""
 
 
 # ── Vault recall: TF-IDF over note contents, per user message ──────────

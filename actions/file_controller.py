@@ -211,6 +211,8 @@ def create_file(path: str, name: str = "", content: str = "") -> str:
     try:
         base   = _resolve_path(path)
         target = (base / name) if name else base
+        if target.is_dir():
+            return "Filename required when creating a file inside a folder."
         if not _is_safe_path(target):
             return f"Access denied: {target}"
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -278,6 +280,10 @@ def move_file(path: str, name: str = "", destination: str = "") -> str:
         src    = (base / name) if name else base
         dst    = _resolve_path(destination) if destination else None
 
+        if not name and src.is_dir() and any(
+            src.resolve() == root.resolve() for root in _SAFE_ROOTS
+        ):
+            return "Source name required; refusing to move a protected folder itself."
         if not src.exists():
             return f"Source not found: {src.name}"
         if dst is None:
@@ -304,6 +310,10 @@ def copy_file(path: str, name: str = "", destination: str = "") -> str:
         src  = (base / name) if name else base
         dst  = _resolve_path(destination) if destination else None
 
+        if not name and src.is_dir() and any(
+            src.resolve() == root.resolve() for root in _SAFE_ROOTS
+        ):
+            return "Source name required; refusing to copy a protected folder itself."
         if not src.exists():
             return f"Source not found: {src.name}"
         if dst is None:
@@ -376,6 +386,8 @@ def write_file(path: str, name: str = "", content: str = "",
     try:
         base   = _resolve_path(path)
         target = (base / name) if name else base
+        if target.is_dir():
+            return "Filename required when writing a file inside a folder."
         if not _is_safe_path(target):
             return f"Access denied: {target}"
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -466,11 +478,10 @@ def get_disk_usage(path: str = "home") -> str:
         target = _resolve_path(path)
         usage  = shutil.disk_usage(target)
         pct    = usage.used / usage.total * 100
+        location = "your home disk" if target.resolve() == Path.home().resolve() else f"the disk containing {target.name}"
         return (
-            f"Disk usage ({target}):\n"
-            f"  Total : {_format_size(usage.total)}\n"
-            f"  Used  : {_format_size(usage.used)} ({pct:.1f}%)\n"
-            f"  Free  : {_format_size(usage.free)}"
+            f"You have about {_format_size(usage.free)} free on {location}, "
+            f"out of {_format_size(usage.total)} total ({pct:.1f}% used)."
         )
     except Exception as e:
         return f"Could not get disk usage: {e}"
@@ -739,6 +750,8 @@ def file_controller(
     action = params.get("action", "").lower().strip()
     path   = params.get("path", "home")
     name   = params.get("name", "")
+    if not name and action in {"create_file", "move", "copy", "rename", "read", "write", "delete"}:
+        name = params.get("file_name", "")
 
     if player:
         player.write_log(f"[file] {action} {name or path}")

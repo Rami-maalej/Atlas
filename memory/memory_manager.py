@@ -3,19 +3,75 @@ import time as _time
 from datetime import datetime
 from threading import Lock
 from pathlib import Path
-import sys
 
-
-def get_base_dir() -> Path:
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent
-    return Path(__file__).resolve().parent.parent
+from core.paths import base_dir as get_base_dir
+from core.paths import memory_path
 
 
 BASE_DIR         = get_base_dir()
-MEMORY_PATH      = BASE_DIR / "memory" / "long_term.json"
+MEMORY_PATH      = memory_path("long_term.json")
 _lock            = Lock()
 MAX_VALUE_LENGTH = 380
+
+# The six canonical categories.  ``format_memory_for_prompt`` reads exactly
+# these keys, so anything else is invisible to the assistant.
+CATEGORIES = ("identity", "preferences", "projects", "relationships", "wishes", "notes")
+
+# The LLM emits category names in every casing and synonym it likes
+# ("Preferences", "Name", "prefs", "personal", ...).  Left unchecked those
+# create new top-level keys that the prompt builder never reads, so the
+# fact was saved but the assistant could never recall it.
+_CATEGORY_ALIASES = {
+    "identity": "identity",
+    "name": "identity",
+    "names": "identity",
+    "personal": "identity",
+    "profile": "identity",
+    "about_me": "identity",
+    "user": "identity",
+    "me": "identity",
+    "preferences": "preferences",
+    "preference": "preferences",
+    "prefs": "preferences",
+    "likes": "preferences",
+    "dislikes": "preferences",
+    "favorites": "preferences",
+    "favourite": "preferences",
+    "habits": "preferences",
+    "taste": "preferences",
+    "projects": "projects",
+    "project": "projects",
+    "work": "projects",
+    "goals": "projects",
+    "relationships": "relationships",
+    "relationship": "relationships",
+    "people": "relationships",
+    "contacts": "relationships",
+    "family": "relationships",
+    "wishes": "wishes",
+    "wish": "wishes",
+    "plans": "wishes",
+    "notes": "notes",
+    "note": "notes",
+    "other": "notes",
+    "general": "notes",
+    "misc": "notes",
+}
+
+
+def normalize_category(category: str) -> str:
+    """Map a free-form category name onto one of the canonical six.
+
+    Unknown categories fall back to "notes" rather than being dropped, so
+    nothing the user says is lost.
+    """
+    if not isinstance(category, str):
+        return "notes"
+    key = category.strip().lower().replace("-", "_").replace(" ", "_")
+    if key in CATEGORIES:
+        return key
+    return _CATEGORY_ALIASES.get(key, "notes")
+
 # 2200 chars evicted genuine facts (name, project, preference) after ~2 days
 # because a single long note pushed past the cap. 3200 still keeps the
 # injected block well under 800 tokens.
@@ -51,6 +107,22 @@ def load_memory() -> dict:
                 for key in base:
                     if key not in data:
                         data[key] = {}
+                # Fold legacy non-canonical categories ("Preferences", "Name")
+                # into their canonical bucket so previously-saved facts become
+                # visible to the prompt builder again.
+                for key in list(data.keys()):
+                    if key in base:
+                        continue
+                    entries = data[key]
+                    if not isinstance(entries, dict):
+                        continue
+                    target = normalize_category(key)
+                    if target == key:
+                        continue
+                    merged = data[target]
+                    for sub_key, entry in entries.items():
+                        merged.setdefault(sub_key, entry)
+                    del data[key]
                 _MEMORY_CACHE.clear()
                 _MEMORY_CACHE.update(data)
                 _MEMORY_CACHE_AT = now
@@ -130,6 +202,15 @@ def update_memory(memory_update: dict) -> dict:
     global _MEMORY_CACHE_AT, _MEMORY_CACHE
     if not isinstance(memory_update, dict) or not memory_update:
         return load_memory()
+    # Normalize the category keys before writing so a fact can never land
+    # in a non-canonical bucket that the prompt builder cannot see.
+    memory_update = {
+        normalize_category(category): entries
+        for category, entries in memory_update.items()
+        if isinstance(entries, dict)
+    }
+    if not memory_update:
+        return load_memory()
     with _lock:
         try:
             memory = json.loads(MEMORY_PATH.read_text(encoding="utf-8")) if MEMORY_PATH.exists() else _empty_memory()
@@ -139,13 +220,66 @@ def update_memory(memory_update: dict) -> dict:
         changed = _recursive_update(memory, memory_update)
         if changed:
             _trim_to_limit(memory)
+            # The memory directory may not exist yet on a fresh install.
+            MEMORY_PATH.parent.mkdir(parents=True, exist_ok=True)
             MEMORY_PATH.write_text(json.dumps(memory, indent=2, ensure_ascii=False), encoding="utf-8")
             _MEMORY_CACHE.clear()
             _MEMORY_CACHE.update(memory)
             _MEMORY_CACHE_AT = 0.0
+            _mirror_to_vault(memory)
     if changed:
         print(f"[Memory] 💾 Saved: {list(memory_update.keys())}")
     return memory
+
+
+def _mirror_to_vault(memory: dict) -> None:
+    """Mirror the fact tables into the Obsidian vault.
+
+    The vault is the assistant's long-term home: facts are readable and
+    editable there.  The JSON file stays as a fast cache and a fallback
+    when no vault is configured.
+    """
+    try:
+        from actions.obsidian_vault import load_facts, store_facts
+    except Exception:
+        return
+    for category in CATEGORIES:
+        entries = memory.get(category) or {}
+        if not isinstance(entries, dict) or not entries:
+            continue
+        facts = {
+            key: str(entry.get("value") if isinstance(entry, dict) else entry)
+            for key, entry in entries.items()
+        }
+        store_facts(category, facts)
+
+
+def import_vault_facts() -> int:
+    """Pull facts out of the Obsidian vault into the JSON memory.
+
+    This runs at startup so facts edited by hand inside Obsidian are
+    picked up, and so a fresh install can restore memory from the vault
+    alone.  Returns the number of facts imported.
+    """
+    try:
+        from actions.obsidian_vault import load_facts
+    except Exception:
+        return 0
+    vault = load_facts()
+    if not vault:
+        return 0
+    imported = 0
+    for category, facts in vault.items():
+        if not facts:
+            continue
+        for key, value in facts.items():
+            if not str(value).strip():
+                continue
+            update_memory({category: {key: {"value": value}}})
+            imported += 1
+    if imported:
+        print(f"[Memory] 📥 Imported {imported} fact(s) from the Obsidian vault")
+    return imported
 
 def format_memory_for_prompt(memory: dict | None) -> str:
     if not memory:
@@ -224,9 +358,7 @@ def format_memory_for_prompt(memory: dict | None) -> str:
     return result + "\n"
 
 def remember(key: str, value: str, category: str = "notes") -> str:
-    valid = {"identity", "preferences", "projects", "relationships", "wishes", "notes"}
-    if category not in valid:
-        category = "notes"
+    category = normalize_category(category)
     update_memory({category: {key: {"value": value}}})
     return f"Remembered: {category}/{key} = {value}"
 

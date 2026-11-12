@@ -7,566 +7,6 @@
       "due": "",
       "done": false,
       "created": "2026-06-13T17:31:37.180793"
-    },
-    {
-      "id": "task-1781884907275",
-      "title": "crud test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-06-19T17:01:47.275483"
-    },
-    {
-      "id": "task-1781884907292",
-      "title": "urgent",
-      "priority": "high",
-      "due": "2026-12-31",
-      "done": false,
-      "created": "2026-06-19T17:01:47.292789"
-    },
-    {
-      "id": "task-1781884907331",
-      "title": "dispatch test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-06-19T17:01:47.331441"
-    },
-    {
-      "id": "task-1781885599125",
-      "title": "crud test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-06-19T17:13:19.125806"
-    },
-    {
-      "id": "task-1781885599145",
-      "title": "urgent",
-      "priority": "high",
-      "due": "2026-12-31",
-      "done": false,
-      "created": "2026-06-19T17:13:19.145504"
-    },
-    {
-      "id": "task-1781885599187",
-      "title": "dispatch test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-06-19T17:13:19.187564"
-    },
-    {
-      "id": "task-1783110993661",
-      "title": "crud test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-07-03T21:36:33.661061"
-    },
-    {
-      "id": "task-1783110993679",
-      "title": "urgent",
-      "priority": "high",
-      "due": "2026-12-31",
-      "done": false,
-      "created": "2026-07-03T21:36:33.679977"
-    },
-    {
-      "id": "task-1783110993721",
-      "title": "dispatch test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-07-03T21:36:33.721715"
-    },
-    {
-      "id": "task-1786968412746",
-      "title": "crud test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-08-17T12:06:52.746145"
-    },
-    {
-      "id": "task-1786968412765",
-      "title": "urgent",
-      "priority": "high",
-      "due": "2026-12-31",
-      "done": false,
-      "created": "2026-08-17T12:06:52.765602"
-    },
-    {
-      "id": "task-1786968412785",
-      "title": "dispatch test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-08-17T12:06:52.785831"
-    },
-    {
-      "id": "task-1786972505855",
-      "title": "crud test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-08-17T13:15:05.855950"
-    },
-    {
-      "id": "task-1786972505863",
-      "title": "urgent",
-      "priority": "high",
-      "due": "2026-12-31",
-      "done": false,
-      "created": "2026-08-17T13:15:05.863470"
-    },
-    {
-      "id": "task-1786972505879",
-      "title": "dispatch test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-08-17T13:15:05.879660"
-    },
-    {
-      "id": "task-1786972574171",
-      "title": "crud test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-08-17T13:16:14.171759"
-    },
-    {
-      "id": "task-1786972574178",
-      "title": "urgent",
-      "priority": "high",
-      "due": "2026-12-31",
-      "done": false,
-      "created": "2026-08-17T13:16:14.178667"
-    },
-    {
-      "id": "task-1786972574192",
-      "title": "dispatch test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-08-17T13:16:14.192904"
-    },
-    {
-      "id": "task-1787054908127",
-      "title": "crud test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-08-18T12:08:28.127863"
-    },
-    {
-      "id": "task-1787054908134",
-      "title": "urgent",
-      "priority": "high",
-      "due": "2026-12-31",
-      "done": false,
-      "created": "2026-08-18T12:08:28.134653"
-    },
-    {
-      "id": "task-1787054908148",
-      "title": "dispatch test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-08-18T12:08:28.148853"
-    },
-    {
-      "id": "task-1787225552253",
-      "title": "crud test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-08-20T11:32:32.253784"
-    },
-    {
-      "id": "task-1787225552255",
-      "title": "urgent",
-      "priority": "high",
-      "due": "2026-12-31",
-      "done": false,
-      "created": "2026-08-20T11:32:32.255525"
-    },
-    {
-      "id": "task-1787225552260",
-      "title": "dispatch test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-08-20T11:32:32.260633"
-    },
-    {
-      "id": "task-1787228392303",
-      "title": "crud test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-08-20T12:19:52.303252"
-    },
-    {
-      "id": "task-1787228392313",
-      "title": "urgent",
-      "priority": "high",
-      "due": "2026-12-31",
-      "done": false,
-      "created": "2026-08-20T12:19:52.313727"
-    },
-    {
-      "id": "task-1787228392335",
-      "title": "dispatch test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-08-20T12:19:52.335017"
-    },
-    {
-      "id": "task-1787228495616",
-      "title": "crud test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-08-20T12:21:35.616601"
-    },
-    {
-      "id": "task-1787228495625",
-      "title": "urgent",
-      "priority": "high",
-      "due": "2026-12-31",
-      "done": false,
-      "created": "2026-08-20T12:21:35.625079"
-    },
-    {
-      "id": "task-1787228495643",
-      "title": "dispatch test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-08-20T12:21:35.643086"
-    },
-    {
-      "id": "task-1787228851629",
-      "title": "crud test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-08-20T12:27:31.629156"
-    },
-    {
-      "id": "task-1787228851638",
-      "title": "urgent",
-      "priority": "high",
-      "due": "2026-12-31",
-      "done": false,
-      "created": "2026-08-20T12:27:31.638185"
-    },
-    {
-      "id": "task-1787228851654",
-      "title": "dispatch test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-08-20T12:27:31.654171"
-    },
-    {
-      "id": "task-1787228994427",
-      "title": "crud test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-08-20T12:29:54.427623"
-    },
-    {
-      "id": "task-1787228994435",
-      "title": "urgent",
-      "priority": "high",
-      "due": "2026-12-31",
-      "done": false,
-      "created": "2026-08-20T12:29:54.435714"
-    },
-    {
-      "id": "task-1787228994452",
-      "title": "dispatch test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-08-20T12:29:54.452933"
-    },
-    {
-      "id": "task-1787229096998",
-      "title": "crud test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-08-20T12:31:36.998172"
-    },
-    {
-      "id": "task-1787229097005",
-      "title": "urgent",
-      "priority": "high",
-      "due": "2026-12-31",
-      "done": false,
-      "created": "2026-08-20T12:31:37.005338"
-    },
-    {
-      "id": "task-1787229097020",
-      "title": "dispatch test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-08-20T12:31:37.020397"
-    },
-    {
-      "id": "task-1790451790685",
-      "title": "crud test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-09-26T20:43:10.685174"
-    },
-    {
-      "id": "task-1790451790717",
-      "title": "urgent",
-      "priority": "high",
-      "due": "2026-12-31",
-      "done": false,
-      "created": "2026-09-26T20:43:10.717063"
-    },
-    {
-      "id": "task-1790451790781",
-      "title": "dispatch test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-09-26T20:43:10.781108"
-    },
-    {
-      "id": "task-1790452413238",
-      "title": "crud test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-09-26T20:53:33.238556"
-    },
-    {
-      "id": "task-1790452413279",
-      "title": "urgent",
-      "priority": "high",
-      "due": "2026-12-31",
-      "done": false,
-      "created": "2026-09-26T20:53:33.279774"
-    },
-    {
-      "id": "task-1790452413366",
-      "title": "dispatch test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-09-26T20:53:33.366879"
-    },
-    {
-      "id": "task-1790452505626",
-      "title": "crud test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-09-26T20:55:05.626701"
-    },
-    {
-      "id": "task-1790452505666",
-      "title": "urgent",
-      "priority": "high",
-      "due": "2026-12-31",
-      "done": false,
-      "created": "2026-09-26T20:55:05.666548"
-    },
-    {
-      "id": "task-1790452505744",
-      "title": "dispatch test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-09-26T20:55:05.744656"
-    },
-    {
-      "id": "task-1790453253562",
-      "title": "crud test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-09-26T21:07:33.562791"
-    },
-    {
-      "id": "task-1790453253579",
-      "title": "urgent",
-      "priority": "high",
-      "due": "2026-12-31",
-      "done": false,
-      "created": "2026-09-26T21:07:33.579638"
-    },
-    {
-      "id": "task-1790453253618",
-      "title": "dispatch test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-09-26T21:07:33.618766"
-    },
-    {
-      "id": "task-1790457199082",
-      "title": "crud test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-09-26T22:13:19.082740"
-    },
-    {
-      "id": "task-1790457199107",
-      "title": "urgent",
-      "priority": "high",
-      "due": "2026-12-31",
-      "done": false,
-      "created": "2026-09-26T22:13:19.107350"
-    },
-    {
-      "id": "task-1790457199152",
-      "title": "dispatch test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-09-26T22:13:19.152230"
-    },
-    {
-      "id": "task-1790517712086",
-      "title": "crud test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-09-27T15:01:52.086768"
-    },
-    {
-      "id": "task-1790517712104",
-      "title": "urgent",
-      "priority": "high",
-      "due": "2026-12-31",
-      "done": false,
-      "created": "2026-09-27T15:01:52.104067"
-    },
-    {
-      "id": "task-1790517712143",
-      "title": "dispatch test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-09-27T15:01:52.143830"
-    },
-    {
-      "id": "task-1791726690228",
-      "title": "crud test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-10-11T14:51:30.228727"
-    },
-    {
-      "id": "task-1791726690247",
-      "title": "urgent",
-      "priority": "high",
-      "due": "2026-12-31",
-      "done": false,
-      "created": "2026-10-11T14:51:30.247280"
-    },
-    {
-      "id": "task-1791726690282",
-      "title": "dispatch test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-10-11T14:51:30.282672"
-    },
-    {
-      "id": "task-1791727347691",
-      "title": "crud test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-10-11T15:02:27.691761"
-    },
-    {
-      "id": "task-1792158234230",
-      "title": "crud test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-10-16T14:43:54.230243"
-    },
-    {
-      "id": "task-1792158234249",
-      "title": "urgent",
-      "priority": "high",
-      "due": "2026-12-31",
-      "done": false,
-      "created": "2026-10-16T14:43:54.249706"
-    },
-    {
-      "id": "task-1792158234292",
-      "title": "dispatch test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-10-16T14:43:54.292945"
-    },
-    {
-      "id": "task-1792158918448",
-      "title": "crud test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-10-16T14:55:18.448059"
-    },
-    {
-      "id": "task-1792158918469",
-      "title": "urgent",
-      "priority": "high",
-      "due": "2026-12-31",
-      "done": false,
-      "created": "2026-10-16T14:55:18.469413"
-    },
-    {
-      "id": "task-1792158918509",
-      "title": "dispatch test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-10-16T14:55:18.509902"
-    },
-    {
-      "id": "task-1792159594855",
-      "title": "crud test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-10-16T15:06:34.855643"
-    },
-    {
-      "id": "task-1792159594873",
-      "title": "urgent",
-      "priority": "high",
-      "due": "2026-12-31",
-      "done": false,
-      "created": "2026-10-16T15:06:34.873874"
-    },
-    {
-      "id": "task-1792159594915",
-      "title": "dispatch test",
-      "priority": "normal",
-      "due": "",
-      "done": false,
-      "created": "2026-10-16T15:06:34.915156"
     }
   ],
   "transactions": [
@@ -1604,6 +1044,96 @@
       "type": "expense",
       "date": "2026-10-16",
       "created": "2026-10-16T15:06:34.927957"
+    },
+    {
+      "id": "tx-1794423506464",
+      "description": "Salary",
+      "amount": 5000,
+      "category": "other",
+      "type": "income",
+      "date": "2026-11-11",
+      "created": "2026-11-11T19:58:26.464112"
+    },
+    {
+      "id": "tx-1794423506467",
+      "description": "Groceries",
+      "amount": 150.5,
+      "category": "food",
+      "type": "expense",
+      "date": "2026-11-11",
+      "created": "2026-11-11T19:58:26.467539"
+    },
+    {
+      "id": "tx-1794423506471",
+      "description": "Salary",
+      "amount": 5000,
+      "category": "other",
+      "type": "income",
+      "date": "2026-11-11",
+      "created": "2026-11-11T19:58:26.471260"
+    },
+    {
+      "id": "tx-1794423506473",
+      "description": "Rent",
+      "amount": 1200,
+      "category": "other",
+      "type": "expense",
+      "date": "2026-11-11",
+      "created": "2026-11-11T19:58:26.473295"
+    },
+    {
+      "id": "tx-1794423506479",
+      "description": "Freelance",
+      "amount": 1000.0,
+      "category": "other",
+      "type": "expense",
+      "date": "2026-11-11",
+      "created": "2026-11-11T19:58:26.479475"
+    },
+    {
+      "id": "tx-1794503595410",
+      "description": "Salary",
+      "amount": 5000,
+      "category": "other",
+      "type": "income",
+      "date": "2026-11-12",
+      "created": "2026-11-12T18:13:15.410935"
+    },
+    {
+      "id": "tx-1794503595413",
+      "description": "Groceries",
+      "amount": 150.5,
+      "category": "food",
+      "type": "expense",
+      "date": "2026-11-12",
+      "created": "2026-11-12T18:13:15.413886"
+    },
+    {
+      "id": "tx-1794503595417",
+      "description": "Salary",
+      "amount": 5000,
+      "category": "other",
+      "type": "income",
+      "date": "2026-11-12",
+      "created": "2026-11-12T18:13:15.417620"
+    },
+    {
+      "id": "tx-1794503595419",
+      "description": "Rent",
+      "amount": 1200,
+      "category": "other",
+      "type": "expense",
+      "date": "2026-11-12",
+      "created": "2026-11-12T18:13:15.419261"
+    },
+    {
+      "id": "tx-1794503595422",
+      "description": "Freelance",
+      "amount": 1000.0,
+      "category": "other",
+      "type": "expense",
+      "date": "2026-11-12",
+      "created": "2026-11-12T18:13:15.422993"
     }
   ]
 }

@@ -21,7 +21,9 @@ from __future__ import annotations
 
 import logging
 import re
+from datetime import datetime
 from typing import Any
+from core.conversation_style import CONVERSATION_STYLE
 
 logger = logging.getLogger("jarvis.general")
 
@@ -39,13 +41,11 @@ _TASK_WORDS = (
     "set ", "mute", "volume", "brightness", "play", "stop", "download",
     "search ", "find", "weather",
 )
+_YEAR_RE = re.compile(r"\b(?:19|20)\d{2}\b")
 
 _FAST_SYSTEM = (
-    "You are Atlantis, Rami Maalej's assistant. Answer the general-knowledge "
-    "question directly and accurately in 1-3 short, natural sentences — like a "
-    "well-informed friend, not an encyclopedia entry. You may end with ONE "
-    "useful follow-up question or offer to search for more. No preamble, no "
-    "meta-commentary about being an AI."
+    CONVERSATION_STYLE + " Answer general-knowledge questions accurately in a few "
+    "natural sentences. Start with the answer; avoid filler and unnecessary follow-ups."
 )
 
 # Pronoun patterns that make a question personal — answered from memory/vault.
@@ -70,6 +70,9 @@ def is_general_question(text: str) -> bool:
     # context-free fast path (which used to make him say "I cannot do that").
     if _is_personal_question(t):
         return False
+    current_year = datetime.now().year
+    if any(current_year - 3 <= int(year) <= current_year for year in _YEAR_RE.findall(t)):
+        return False
     # Social chatter needs the FULL system prompt (persona + memory), not the
     # context-free fast answer — otherwise "how are you?" gets a canned reply.
     try:
@@ -89,7 +92,22 @@ def is_general_question(text: str) -> bool:
     return False
 
 
-def ask_general(question: str) -> str | None:
+def _recent_dialogue(history: list[dict] | None, max_turns: int = 3) -> list[dict]:
+    turns: list[list[dict]] = []
+    pending_user: dict | None = None
+    for message in history or []:
+        role = message.get("role")
+        if role == "user":
+            pending_user = {"role": "user", "content": str(message.get("content", ""))}
+        elif role == "assistant" and pending_user and not message.get("tool_calls"):
+            content = str(message.get("content", "")).strip()
+            if content:
+                turns.append([pending_user, {"role": "assistant", "content": content}])
+                pending_user = None
+    return [message for turn in turns[-max_turns:] for message in turn]
+
+
+def ask_general(question: str, history: list[dict] | None = None) -> str | None:
     """Get a fast direct answer from the configured AI provider.
 
     Returns the full answer text, or None if the fast path failed.
@@ -99,10 +117,9 @@ def ask_general(question: str) -> str | None:
     try:
         from core.llm_client import call_llm  # noqa: E402
 
-        messages = [
-            {"role": "system", "content": _FAST_SYSTEM},
-            {"role": "user",   "content": question},
-        ]
+        messages = [{"role": "system", "content": _FAST_SYSTEM}]
+        messages.extend(_recent_dialogue(history))
+        messages.append({"role": "user", "content": question})
         result = call_llm(messages, tools=None, timeout=30)
         answer = ""
         if isinstance(result, dict):

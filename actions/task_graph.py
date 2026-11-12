@@ -3,6 +3,7 @@ import logging
 import threading
 from pathlib import Path
 from typing import Any
+from core.paths import memory_path
 
 logger = logging.getLogger("task_graph")
 
@@ -13,7 +14,7 @@ except ImportError:
     HAS_NETWORKX = False
     nx = None
 
-GRAPH_PATH = Path(__file__).resolve().parent.parent / "memory" / "task_graph.json"
+GRAPH_PATH = memory_path("task_graph.json")
 _lock = threading.Lock()
 
 

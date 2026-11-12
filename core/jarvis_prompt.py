@@ -11,6 +11,7 @@ from memory.memory_manager import load_memory, format_memory_for_prompt
 from memory.vector_memory  import get_relevant_context, get_memory_count
 from skills.skill_loader   import get_active_skill_context
 from agent.agent_manager   import get_agent_manager
+from core.conversation_style import CONVERSATION_STYLE
 
 # Paths
 BASE_DIR        = Path(__file__).resolve().parent.parent
@@ -119,7 +120,7 @@ def _build_system_prompt(self, user_text: str = "") -> str:
     running    = agent_mgr.get_running_count()
     agent_info = f"[BACKGROUND AGENTS: {running} running]" if running > 0 else ""
 
-    parts = [sys_p]
+    parts = [CONVERSATION_STYLE, sys_p]
     if _user_profile_ctx:
         parts.append(_user_profile_ctx)
     if mem_str:

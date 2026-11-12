@@ -5,35 +5,35 @@
       "type": "project",
       "name": "TaskPro",
       "properties": {},
-      "created": "2026-10-16T15:07:03.449344"
+      "created": "2026-11-12T18:14:04.928977"
     },
     "p1": {
       "id": "p1",
       "type": "project",
       "name": "App",
       "properties": {},
-      "created": "2026-10-16T15:07:03.460577"
+      "created": "2026-11-12T18:14:04.960091"
     },
     "r1": {
       "id": "r1",
       "type": "repository",
       "name": "github/app",
       "properties": {},
-      "created": "2026-10-16T15:07:03.464035"
+      "created": "2026-11-12T18:14:04.978627"
     },
     "proj": {
       "id": "proj",
       "type": "project",
       "name": "MyApp",
       "properties": {},
-      "created": "2026-10-16T15:07:03.492024"
+      "created": "2026-11-12T18:14:05.001517"
     },
     "repo": {
       "id": "repo",
       "type": "repository",
       "name": "github/myapp",
       "properties": {},
-      "created": "2026-10-16T15:07:03.498337"
+      "created": "2026-11-12T18:14:05.010185"
     },
     "srv": {
       "id": "srv",
@@ -42,7 +42,7 @@
       "properties": {
         "ip": "1.2.3.4"
       },
-      "created": "2026-10-16T15:07:03.501912"
+      "created": "2026-11-12T18:14:05.014018"
     },
     "db": {
       "id": "db",
@@ -51,7 +51,7 @@
       "properties": {
         "engine": "postgres"
       },
-      "created": "2026-10-16T15:07:03.503823"
+      "created": "2026-11-12T18:14:05.018982"
     },
     "cred": {
       "id": "cred",
@@ -60,7 +60,7 @@
       "properties": {
         "username": "admin"
       },
-      "created": "2026-10-16T15:07:03.511484"
+      "created": "2026-11-12T18:14:05.039376"
     },
     "src": {
       "id": "src",
@@ -81,14 +81,14 @@
       "type": "project",
       "name": "SourceRel",
       "properties": {},
-      "created": "2026-10-16T15:07:03.571794"
+      "created": "2026-11-12T18:14:05.155072"
     },
     "tgt_rel": {
       "id": "tgt_rel",
       "type": "server",
       "name": "TargetRel",
       "properties": {},
-      "created": "2026-10-16T15:07:03.574185"
+      "created": "2026-11-12T18:14:05.168339"
     }
   },
   "edges": [
@@ -955,6 +955,78 @@
       "target": "tgt_rel",
       "relation": "deploys_to",
       "created": "2026-10-16T15:07:03.576192"
+    },
+    {
+      "source": "p1",
+      "target": "r1",
+      "relation": "hosted_at",
+      "created": "2026-11-11T19:59:06.349159"
+    },
+    {
+      "source": "proj",
+      "target": "repo",
+      "relation": "code",
+      "created": "2026-11-11T19:59:06.426517"
+    },
+    {
+      "source": "repo",
+      "target": "srv",
+      "relation": "deployed",
+      "created": "2026-11-11T19:59:06.451378"
+    },
+    {
+      "source": "srv",
+      "target": "db",
+      "relation": "uses",
+      "created": "2026-11-11T19:59:06.494813"
+    },
+    {
+      "source": "db",
+      "target": "cred",
+      "relation": "requires",
+      "created": "2026-11-11T19:59:06.501390"
+    },
+    {
+      "source": "src_rel",
+      "target": "tgt_rel",
+      "relation": "deploys_to",
+      "created": "2026-11-11T19:59:06.804036"
+    },
+    {
+      "source": "p1",
+      "target": "r1",
+      "relation": "hosted_at",
+      "created": "2026-11-12T18:14:04.981024"
+    },
+    {
+      "source": "proj",
+      "target": "repo",
+      "relation": "code",
+      "created": "2026-11-12T18:14:05.047301"
+    },
+    {
+      "source": "repo",
+      "target": "srv",
+      "relation": "deployed",
+      "created": "2026-11-12T18:14:05.054320"
+    },
+    {
+      "source": "srv",
+      "target": "db",
+      "relation": "uses",
+      "created": "2026-11-12T18:14:05.062393"
+    },
+    {
+      "source": "db",
+      "target": "cred",
+      "relation": "requires",
+      "created": "2026-11-12T18:14:05.068584"
+    },
+    {
+      "source": "src_rel",
+      "target": "tgt_rel",
+      "relation": "deploys_to",
+      "created": "2026-11-12T18:14:05.178433"
     }
   ]
 }

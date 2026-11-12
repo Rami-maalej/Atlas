@@ -19,13 +19,14 @@ import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
+from core.paths import memory_path
 
 logger = logging.getLogger("proactive")
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-TASKS_PATH = BASE_DIR / "memory" / "tasks.json"
-EPISODES_PATH = BASE_DIR / "memory" / "episodes.json"
-STATE_PATH = BASE_DIR / "memory" / "proactive_state.json"
+TASKS_PATH = memory_path("tasks.json")
+EPISODES_PATH = memory_path("episodes.json")
+STATE_PATH = memory_path("proactive_state.json")
 
 CHECK_SECONDS = 300          # 5-minute cadence
 BRIEFING_WINDOW = (7, 30, 10, 30)    # 07:30 → 10:30
@@ -33,6 +34,7 @@ EVENING_WINDOW = (20, 0, 23, 0)      # 20:00 → 23:00
 
 _state_lock = threading.Lock()
 _started = False
+_stop_event = threading.Event()
 
 
 # ── small helpers ───────────────────────────────────────────────────────
@@ -214,13 +216,15 @@ def run_check(ui=None, speak_fn: Callable[[str], None] | None = None) -> list[st
 # ── daemon lifecycle ────────────────────────────────────────────────────
 def _loop(ui, speak_fn) -> None:
     # first cycle after a short grace period (let startup settle)
-    threading.Event().wait(45)
-    while True:
+    if _stop_event.wait(45):
+        return
+    while not _stop_event.is_set():
         try:
             run_check(ui, speak_fn)
         except Exception as e:
             logger.debug("proactive cycle failed: %s", e)
-        threading.Event().wait(CHECK_SECONDS)
+        if _stop_event.wait(CHECK_SECONDS):
+            return
 
 
 def start_proactive(ui, speak_fn: Callable[[str], None] | None = None) -> bool:
@@ -229,6 +233,14 @@ def start_proactive(ui, speak_fn: Callable[[str], None] | None = None) -> bool:
     if _started:
         return False
     _started = True
+    _stop_event.clear()
     threading.Thread(target=_loop, args=(ui, speak_fn), daemon=True).start()
     print("[Proactive] Autonomous mind started")
     return True
+
+
+def stop_proactive() -> None:
+    """Ask the autonomous mind to stop its next cycle."""
+    global _started
+    _stop_event.set()
+    _started = False

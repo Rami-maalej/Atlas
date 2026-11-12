@@ -18,6 +18,7 @@ from core.llm_client import resolve_llm_url
 from actions.file_controller import open_folder as _open_folder
 
 from actions._lazy_pya import LazyPya, pya_saved as _pya_saved
+from core.paths import memory_path
 
 pyautogui = LazyPya()
 
@@ -35,7 +36,7 @@ def _base_dir() -> Path:
 
 _BASE         = _base_dir()
 _CONFIG_PATH  = _BASE / "config" / "api_keys.json"
-_MEMORY_PATH  = _BASE / "memory" / "long_term.json"
+_MEMORY_PATH  = memory_path("long_term.json")
 
 def _load_config() -> dict:
     try:

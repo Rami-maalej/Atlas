@@ -69,6 +69,8 @@ win10toast; sys_platform == "win32"
 youtube-transcript-api
 python-pptx
 miniaudio
+img2pdf                # image → PDF conversion
+openpyxl              # xlsx ↔ csv conversion
 
 # ── STT — choose one (auto-installed by main.py based on your config) ─────
 faster-whisper        # Whisper  (default, recommended)

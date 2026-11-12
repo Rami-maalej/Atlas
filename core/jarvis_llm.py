@@ -47,6 +47,20 @@ def _prefetch_context(self, user_text: str) -> None:
         # late can't leak its (stale) context into the next turn.
         self._prefetched_for = user_text
 
+def _trim_conversation(messages: list[dict], max_turns: int = 5) -> list[dict]:
+    turns: list[list[dict]] = []
+    current: list[dict] = []
+    for message in messages:
+        if message.get("role") == "user":
+            if current:
+                turns.append(current)
+            current = [message]
+        elif current:
+            current.append(message)
+    if current:
+        turns.append(current)
+    return [message for turn in turns[-max_turns:] for message in turn]
+
 # ------------------------------------------------------------------
 # Ultra-fast general-knowledge answers
 # ------------------------------------------------------------------
@@ -58,7 +72,9 @@ def _fast_general_answer(self, user_text: str) -> None:
     provider) returns the answer in sub-second when warm."""
     try:
         from core.jarvis_general import ask_general  # noqa: E402
-        answer = ask_general(user_text)
+        with self._conv_lock:
+            history = list(self._conversation[:-1])
+        answer = ask_general(user_text, history=history)
         if answer:
             self.ui.write_log_instant(f"Atlantis: {answer}")
             self.speak(answer)
@@ -178,9 +194,8 @@ def _process_message(self, user_text: str) -> None:
             self.ui.set_state("LISTENING")
         return
 
-    MAX_HISTORY = 10
-    if len(self._conversation) > MAX_HISTORY:
-        self._conversation = self._conversation[-MAX_HISTORY:]
+    with self._conv_lock:
+        self._conversation = _trim_conversation(self._conversation, max_turns=5)
 
     # ── Intent Router: bypass LLM for common commands ─────────────────
     self._last_intent = route_intent(user_text)
@@ -188,7 +203,11 @@ def _process_message(self, user_text: str) -> None:
         # Route directly — no LLM call needed
         tool_params = self._last_intent.handler_params
         self.ui.write_log(f"INTENT: {self._last_intent.intent_name} → {tool_params}")
-        result = self._execute_tool(self._last_intent.handler_name, tool_params)
+        try:
+            result = self._execute_tool(self._last_intent.handler_name, tool_params)
+        finally:
+            if not self.ui.muted and not getattr(self, "_speaking", False):
+                self.ui.set_state("LISTENING")
         if result == "__SILENT__":
             # Silent tools (save_memory) — don't speak, don't store
             return

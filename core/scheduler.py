@@ -6,13 +6,14 @@ from pathlib import Path
 from typing import Callable
 import sys
 import re
+from core.paths import memory_path
 
 def get_base_dir() -> Path:
     if getattr(sys, "frozen", False):
         return Path(sys.executable).parent
     return Path(__file__).resolve().parent.parent
 
-SCHED_PATH = get_base_dir() / "memory" / "scheduler.json"
+SCHED_PATH = memory_path("scheduler.json")
 
 class Scheduler:
     def __init__(self):

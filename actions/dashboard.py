@@ -20,10 +20,11 @@ import json
 import logging
 from datetime import date
 from pathlib import Path
+from core.paths import memory_path
 
 logger = logging.getLogger("dashboard")
 
-DASHBOARD_FILE = Path(__file__).resolve().parent.parent / "memory" / "dashboard.json"
+DASHBOARD_FILE = memory_path("dashboard.json")
 
 # Apps used on this many distinct days become part of the daily dashboard.
 PROMOTE_DAYS = 3

@@ -6,13 +6,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 import sys
+from core.paths import memory_path
 
 def get_base_dir() -> Path:
     if getattr(sys, "frozen", False):
         return Path(sys.executable).parent
     return Path(__file__).resolve().parent.parent
 
-AGENTS_PATH = get_base_dir() / "memory" / "agents.json"
+AGENTS_PATH = memory_path("agents.json")
 
 class AgentStatus:
     IDLE = "idle"

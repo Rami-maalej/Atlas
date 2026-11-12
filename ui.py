@@ -25,7 +25,7 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtWidgets import (
     QApplication, QComboBox, QFileDialog, QFrame, QHBoxLayout, QInputDialog, QLabel, QLineEdit,
-    QMainWindow, QPushButton, QScrollArea, QSizePolicy, QSplitter, QStackedWidget, QTextEdit,
+    QMainWindow, QMenu, QPushButton, QScrollArea, QSizePolicy, QSplitter, QStackedWidget, QTextEdit,
     QVBoxLayout, QWidget, QProgressBar, QGridLayout,
 )
 try:
@@ -77,10 +77,10 @@ def _run_async(coro):
 CONFIG_DIR = BASE_DIR / "config"
 API_FILE   = CONFIG_DIR / "api_keys.json"
 
-_DEFAULT_W, _DEFAULT_H = 1400, 900
-_MIN_W,     _MIN_H     = 1200, 800
-_LEFT_W  = 220
-_RIGHT_W = 500
+_DEFAULT_W, _DEFAULT_H = 1440, 900
+_MIN_W,     _MIN_H     = 1100, 720
+_LEFT_W  = 228
+_RIGHT_W = 390
 
 _OS = platform.system()  # "Windows" | "Darwin" | "Linux"
 
@@ -97,57 +97,37 @@ _API_SERVICES = [
 
 
 class C:
-    # Strict Black & White theme constants
-    BG        = "#000000"
-    PANEL     = "#000000"
-    PANEL2    = "#000000"
-    BORDER    = "#ffffff"
-    BORDER_B  = "#ffffff"
-    BORDER_A  = "#ffffff"
-    PRI       = "#ffffff"
-    PRI_DIM   = "#ffffff"
-    PRI_GHO   = "#000000"
-    ACC       = "#007AFF"
-    ACC_DIM   = "#004A99"
-    ACC_GHO   = "#001A33"
+    BG        = "#091114"
+    PANEL     = "#0D181C"
+    PANEL2    = "#122126"
+    BORDER    = "#263B40"
+    BORDER_B  = "#39545A"
+    BORDER_A  = "#4CE0CA"
+    PRI       = "#F2B861"
+    PRI_DIM   = "#A97B35"
+    PRI_GHO   = "#2C2418"
+    ACC       = "#40D6C1"
+    ACC_DIM   = "#207F75"
+    ACC_GHO   = "#10332F"
     _theme_hooks: list = []
 
     @classmethod
     def on_theme_change(cls, hook):
         cls._theme_hooks.append(hook)
 
-    GREEN     = "#00FF00"
-    GREEN_D   = "#008800"
-    RED       = "#FF0000"
-    MUTED_C   = "#FFFFFF"
-    TEXT      = "#FFFFFF"
-    TEXT_DIM  = "#FFFFFF"
-    TEXT_MED  = "#FFFFFF"
-    WHITE     = "#FFFFFF"
-    DARK      = "#000000"
-    BAR_BG    = "#000000"
+    GREEN     = "#70D9A6"
+    GREEN_D   = "#286B4D"
+    RED       = "#FF7770"
+    MUTED_C   = "#789196"
+    TEXT      = "#E7F0EF"
+    TEXT_DIM  = "#789196"
+    TEXT_MED  = "#B1C3C2"
+    WHITE     = "#F3F8F7"
+    DARK      = "#091114"
+    BAR_BG    = "#26383D"
 
     @classmethod
     def apply_theme(cls, light_mode: bool):
-        # Force Dark Mode (Black & White) even if light_mode is requested
-        cls.BG        = "#000000"
-        cls.PANEL     = "#000000"
-        cls.PANEL2    = "#000000"
-        cls.BORDER    = "#ffffff"
-        cls.BORDER_B  = "#ffffff"
-        cls.BORDER_A  = "#ffffff"
-        cls.PRI       = "#ffffff"
-        cls.PRI_DIM   = "#ffffff"
-        cls.PRI_GHO   = "#000000"
-        cls.TEXT      = "#ffffff"
-        cls.TEXT_DIM  = "#ffffff"
-        cls.TEXT_MED  = "#ffffff"
-        cls.BAR_BG    = "#000000"
-        for _hook in cls._theme_hooks:
-            try:
-                _hook()
-            except Exception:
-                pass
         for _hook in cls._theme_hooks:
             try:
                 _hook()
@@ -191,6 +171,9 @@ class _SysMetrics:
     def _update(self):
         cpu = psutil.cpu_percent(interval=0.1)
         mem = psutil.virtual_memory().percent
+        with self._lock:
+            self.cpu = cpu
+            self.mem = mem
 
         nc  = psutil.net_io_counters()
         now = time.time()
@@ -203,15 +186,14 @@ class _SysMetrics:
             net = 0.0
         self._last_net   = nc
         self._last_net_t = now
+        with self._lock:
+            self.net = net
 
         gpu = self._get_gpu()
 
         tmp = self._get_temp()
 
         with self._lock:
-            self.cpu = cpu
-            self.mem = mem
-            self.net = net
             self.gpu = gpu
             self.tmp = tmp
 
@@ -264,9 +246,8 @@ class _SysMetrics:
 
             # Sysfs fallback (no extra tools, no root required)
             # Per card priority:
-            #   1) gpu_busy_percent  (amdgpu newer GPUs)
-            #   2) Frequency ratio   (Intel i915 UHD - cur/max proxy)
-            #   3) VRAM usage %      (AMD fallback when busy% unsupported)
+            #   1) gpu_busy_percent  (amdgpu)
+            #   2) Frequency ratio   (Intel i915 proxy)
             try:
                 drm_root = "/sys/class/drm"
                 cards = sorted(
@@ -306,17 +287,6 @@ class _SysMetrics:
                         except (ValueError, OSError):
                             pass
 
-                    # 3) AMD VRAM usage % (last-resort proxy)
-                    tot_p = f"{base}/device/mem_info_vram_total"
-                    use_p = f"{base}/device/mem_info_vram_used"
-                    if os.path.exists(tot_p) and os.path.exists(use_p):
-                        try:
-                            tot = float(open(tot_p).read().strip())
-                            use = float(open(use_p).read().strip())
-                            if tot > 0:
-                                return max(0.0, min(100.0, use / tot * 100.0))
-                        except (ValueError, OSError):
-                            pass
             except Exception:
                 pass
 
@@ -715,7 +685,7 @@ class HudCanvas(QWidget):
 
 class MetricBar(QWidget):
 
-    def __init__(self, label: str, color: str = C.PRI, parent=None):
+    def __init__(self, label: str, color: str = C.ACC, parent=None):
         super().__init__(parent)
         self._label = label
         self._color = color
@@ -749,7 +719,8 @@ class MetricBar(QWidget):
         p.drawRoundedRect(QRectF(bar_x, bar_y, bar_w, bar_h), 2, 2)
 
         a = max(60, min(255, int(100 + self._value * 1.5)))
-        bar_col = qcol(C.WHITE, a)
+        bar_color = C.RED if self._value >= 85 else C.PRI if self._value >= 65 else self._color
+        bar_col = qcol(bar_color, a)
 
         if fill_w > 0:
             p.setBrush(QBrush(bar_col))
@@ -945,12 +916,39 @@ class ChatWidget(QWidget):
     @staticmethod
     def _bubble_style(side: str) -> str:
         if side == "you":
-            # User bubble: No border, dark panel background — right aligned
-            return (f"QWidget {{ background: #1A1A1A; border: none; border-radius: 0px; margin-left: 80px; padding: 2px; }}"
-                    f"QLabel {{ color: #ffffff; background: transparent; border: none; }}")
-        # Atlantis bubble: Subtle accent border on left — left aligned
-        return (f"QWidget {{ background: #000000; border-left: 3px solid {C.ACC}; border-radius: 0px; margin-right: 80px; padding: 2px; }}"
-                f"QLabel {{ color: #ffffff; background: transparent; border: none; }}")
+            return (f"QWidget {{ background: {C.ACC_GHO}; border: 1px solid {C.ACC_DIM}; border-radius: 0px; padding: 2px; }}"
+                f"QLabel {{ color: {C.TEXT}; background: transparent; border: none; }}")
+        return (f"QWidget {{ background: {C.PANEL}; border-left: 3px solid {C.ACC}; border-radius: 0px; padding: 2px; }}"
+            f"QLabel {{ color: {C.TEXT}; background: transparent; border: none; }}")
+
+    def _fit_bubbles(self) -> None:
+        max_width = max(120, int(self._scroll.viewport().width() * 0.88))
+        for index in range(self._box_lay.count() - 1):
+            bubble = self._box_lay.itemAt(index).widget()
+            if bubble is not None:
+                bubble.setMaximumWidth(max_width)
+                message = bubble.findChild(QLabel)
+                if message is not None:
+                    QTimer.singleShot(0, lambda label=message: self._fit_bubble_height(label))
+
+    @staticmethod
+    def _fit_bubble_height(label: QLabel) -> None:
+        if label.width() > 0:
+            label.setMinimumHeight(label.heightForWidth(label.width()))
+
+    def _show_message_menu(self, label: QLabel, position) -> None:
+        menu = QMenu(label)
+        copy_action = menu.addAction("Copy message")
+        copy_action.triggered.connect(lambda: self._copy_message(label))
+        menu.exec(label.mapToGlobal(position))
+
+    @staticmethod
+    def _copy_message(label: QLabel) -> None:
+        QApplication.clipboard().setText(label.text())
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._fit_bubbles()
 
     @staticmethod
     def _tag_style(tag: str) -> str:
@@ -961,6 +959,7 @@ class ChatWidget(QWidget):
 
     def _add_bubble(self, text: str, side: str, tag: str = "") -> None:
         bubble = QWidget()
+        bubble.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
         bubble.setStyleSheet(self._bubble_style(side))
         b_lay = QVBoxLayout(bubble)
         b_lay.setContentsMargins(10, 7, 10, 7)
@@ -969,8 +968,17 @@ class ChatWidget(QWidget):
         lbl = QLabel(text)
         lbl.setWordWrap(True)
         lbl.setFont(QFont(_FONT, _FONT_SZ_SM))
-        lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        lbl.setStyleSheet(f"color: {'#ffffff' if side == 'you' else C.TEXT}; background: transparent; border: none;")
+        lbl.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+            | Qt.TextInteractionFlag.TextSelectableByKeyboard
+        )
+        lbl.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        lbl.setToolTip("Right-click to copy")
+        lbl.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        lbl.customContextMenuRequested.connect(
+            lambda position, message=lbl: self._show_message_menu(message, position)
+        )
+        lbl.setStyleSheet(f"color: {C.TEXT}; background: transparent; border: none;")
         # Remove hard limit and set alignment for better wrapping
         lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         b_lay.addWidget(lbl)
@@ -987,6 +995,7 @@ class ChatWidget(QWidget):
             self._box_lay.insertWidget(idx, bubble, alignment=Qt.AlignmentFlag.AlignRight)
         else:
             self._box_lay.insertWidget(idx, bubble, alignment=Qt.AlignmentFlag.AlignLeft)
+        self._fit_bubbles()
 
         # Auto-scroll to the newest bubble
         QTimer.singleShot(30, lambda: self._scroll.verticalScrollBar().setValue(
@@ -1006,7 +1015,7 @@ class ChatWidget(QWidget):
                     if lbl.font().pixelSize() <= 0 or lbl.font().pointSize() <= 7:
                         lbl.setStyleSheet(self._tag_style(""))
                     elif w.layout().alignment() == Qt.AlignmentFlag.AlignRight:
-                        lbl.setStyleSheet("color: #ffffff; background: transparent; border: none;")
+                        lbl.setStyleSheet(f"color: {C.TEXT}; background: transparent; border: none;")
                     else:
                         lbl.setStyleSheet(f"color: {C.TEXT}; background: transparent; border: none;")
 
@@ -1297,7 +1306,7 @@ class SetupOverlay(QWidget):
 
         self._sel_stt          = _init.get("stt_engine",    "whisper")
         self._sel_tts          = _init.get("tts_engine",    "edgetts")
-        self._sel_llm_provider = _init.get("llm_provider",  "ollama")
+        self._sel_llm_provider = _init.get("llm_provider",  "nvidia_nim")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(30, 24, 30, 24)
@@ -2114,109 +2123,246 @@ ProvidersOverlay = ConnectionsOverlay
 
 
 class StartupPanel(QWidget):
-    """Animated startup progress overlay — shown while components initialize."""
+    """Full-window loading screen with a live progress bar.
+
+    Replaces the old three-row "SYSTEMS INITIALISING" overlay.  The bar
+    is driven by :mod:`core.startup_progress`, so it advances with the
+    real boot sequence instead of showing an indeterminate animation.
+
+    Design notes (see the ui-ux pass):
+    * The overall percentage is always visible — a spinner alone cannot
+      answer "how much longer?".
+    * Each stage gets its own thin bar so a slow subsystem is obvious.
+    * Contrast is checked against the panel background, and the status
+      line is not the only carrier of meaning (bars + labels too).
+    """
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet(f"""
             StartupPanel {{
-                background: rgba(0, 0, 0, 240);
+                background: {C.BG};
+                border: none;
+            }}
+        """)
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.addStretch(1)
+
+        card = QWidget()
+        card.setFixedWidth(520)
+        card.setStyleSheet(f"""
+            QWidget {{
+                background: {C.PANEL};
                 border: 1px solid {C.BORDER};
-               
+                border-radius: 10px;
             }}
         """)
+        card_lay = QVBoxLayout(card)
+        card_lay.setContentsMargins(32, 28, 32, 28)
+        card_lay.setSpacing(0)
 
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(28, 20, 28, 20)
-        lay.setSpacing(10)
-
-        title = QLabel("SYSTEMS INITIALISING")
-        title.setFont(QFont("Courier New", 11, QFont.Weight.Bold))
+        # ── Title ────────────────────────────────────────────────────────
+        title = QLabel("ULTRON")
+        title.setFont(QFont(_FONT, 22, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet(f"color: {C.TEXT}; background: transparent;")
-        lay.addWidget(title)
+        title.setStyleSheet(f"color: {C.TEXT}; background: transparent; border: none;")
+        card_lay.addWidget(title)
 
-        lay.addSpacing(2)
+        subtitle = QLabel("Preparing your assistant")
+        subtitle.setFont(QFont(_FONT, 10))
+        subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        subtitle.setStyleSheet(f"color: {C.TEXT_MED}; background: transparent; border: none;")
+        card_lay.addWidget(subtitle)
 
+        card_lay.addSpacing(22)
+
+        # ── Overall progress ─────────────────────────────────────────────
+        top = QHBoxLayout()
+        pct_lbl = QLabel("0%")
+        pct_lbl.setFont(QFont(_FONT, 20, QFont.Weight.Bold))
+        pct_lbl.setMinimumWidth(72)
+        pct_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        pct_lbl.setStyleSheet(f"color: {C.ACC}; background: transparent; border: none;")
+        top.addStretch()
+        top.addWidget(pct_lbl)
+        card_lay.addLayout(top)
+
+        self._pct_lbl = pct_lbl
+
+        self._bar = _ProgressBar()
+        self._bar.setFixedHeight(6)
+        card_lay.addWidget(self._bar)
+        card_lay.addSpacing(6)
+
+        self._status_lbl = QLabel("Starting up…")
+        self._status_lbl.setFont(QFont(_FONT, 9))
+        self._status_lbl.setStyleSheet(f"color: {C.TEXT_MED}; background: transparent; border: none;")
+        card_lay.addWidget(self._status_lbl)
+
+        card_lay.addSpacing(20)
+
+        # ── Stage list ───────────────────────────────────────────────────
         self._rows: dict[str, dict] = {}
-        _COMPS = ["SPEECH RECOGNITION", "LANGUAGE MODEL", "VOICE SYNTHESIS"]
-        for key, label in zip(["stt", "llm", "tts"], _COMPS):
+        self._row_layout = QVBoxLayout()
+        self._row_layout.setContentsMargins(0, 0, 0, 0)
+        # Generous spacing between rows so each bar visually belongs to the
+        # label above it, not to the next row down.
+        self._row_layout.setSpacing(14)
+        card_lay.addLayout(self._row_layout)
+
+        card_lay.addSpacing(18)
+
+        self._elapsed_lbl = QLabel("0.0s")
+        self._elapsed_lbl.setFont(QFont(_FONT, 8))
+        self._elapsed_lbl.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self._elapsed_lbl.setStyleSheet(f"color: {C.TEXT_DIM}; background: transparent; border: none;")
+        card_lay.addWidget(self._elapsed_lbl)
+
+        holder = QHBoxLayout()
+        holder.setContentsMargins(0, 0, 0, 0)
+        holder.addStretch()
+        holder.addWidget(card)
+        holder.addStretch()
+        outer.addLayout(holder)
+        outer.addStretch(1)
+
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._refresh)
+        self._timer.start(90)          # ~11 fps — smooth without burning CPU
+
+    # ── Public API (called only from the Qt thread) ──────────────────────
+    def set_stages(self, stages: list[dict]) -> None:
+        """Create the stage rows from a progress snapshot."""
+        for stage in stages:
+            key = stage["key"]
+            if key in self._rows:
+                continue
             box = QWidget()
-            box.setStyleSheet(
-                f"background: {C.PANEL2}; border: 1px solid {C.BORDER};"
-            )
-            box_lay = QVBoxLayout(box)
-            box_lay.setContentsMargins(10, 6, 10, 6)
-            box_lay.setSpacing(4)
+            box.setStyleSheet("background: transparent;")
+            lay = QVBoxLayout(box)
+            lay.setContentsMargins(0, 0, 0, 0)
+            # The bar hugs its own label; the gap to the next row comes from
+            # the row layout's spacing.
+            lay.setSpacing(3)
 
-            top = QHBoxLayout()
-            nm = QLabel(label)
-            nm.setFont(QFont("Courier New", 8))
+            row = QHBoxLayout()
+            row.setContentsMargins(0, 0, 0, 0)
+            nm = QLabel(stage["label"])
+            nm.setFont(QFont(_FONT, 9))
             nm.setStyleSheet(f"color: {C.TEXT_MED}; background: transparent; border: none;")
-            top.addWidget(nm)
-            top.addStretch()
-
-            st = QLabel("LOADING…")
-            st.setFont(QFont("Courier New", 7))
+            row.addWidget(nm)
+            row.addStretch()
+            st = QLabel("WAITING")
+            st.setFont(QFont(_FONT, 8))
             st.setStyleSheet(f"color: {C.TEXT_DIM}; background: transparent; border: none;")
-            top.addWidget(st)
-            box_lay.addLayout(top)
+            row.addWidget(st)
+            lay.addLayout(row)
 
-            bar = QProgressBar()
+            bar = _ProgressBar()
             bar.setFixedHeight(3)
-            bar.setRange(0, 0)
-            bar.setTextVisible(False)
-            bar.setStyleSheet(f"""
-                QProgressBar {{
-                    background: {C.BAR_BG}; border: none;
-                }}
-                QProgressBar::chunk {{
-                    background: {C.TEXT_DIM};
-                    width: 60px; margin: 0px;
-                }}
-            """)
-            box_lay.addWidget(bar)
-            lay.addWidget(box)
-            self._rows[key] = {"bar": bar, "status": st, "color": C.TEXT}
+            lay.addWidget(bar)
 
-        lay.addSpacing(4)
+            self._row_layout.addWidget(box)
+            self._rows[key] = {"bar": bar, "status": st, "name": nm}
 
-        self._status_lbl = QLabel("Initialising components…")
-        self._status_lbl.setFont(QFont("Courier New", 7))
-        self._status_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._status_lbl.setStyleSheet(f"color: {C.TEXT_DIM}; background: transparent;")
-        self._status_lbl.setWordWrap(True)
-        lay.addWidget(self._status_lbl)
+    def _refresh(self) -> None:
+        """Poll the progress registry and repaint."""
+        from core.startup_progress import PROGRESS
+        snap = PROGRESS.snapshot()
 
-    # Called only from the main thread (via MainWindow._startup_sig)
-    def update_component(self, key: str, status: str) -> None:
-        if key not in self._rows:
-            return
-        row = self._rows[key]
-        ok     = status == "ready"
-        color  = row["color"] if ok else C.TEXT_DIM
-        label  = "READY" if ok else "ERROR"
+        self._bar.setValue(snap["percent"])
+        self._pct_lbl.setText(f"{snap['percent']}%")
+        self._elapsed_lbl.setText(f"{snap['elapsed']:.1f}s")
 
-        bar = row["bar"]
-        bar.setRange(0, 100)
-        bar.setValue(100)
-        bar.setStyleSheet(f"""
-            QProgressBar {{
-                background: {C.BAR_BG}; border: none;
-            }}
-            QProgressBar::chunk {{
-                background: {color};
-            }}
-        """)
-        st = row["status"]
-        st.setText(label)
-        st.setStyleSheet(f"color: {color}; background: transparent; border: none;")
+        if snap["active"]:
+            self._status_lbl.setText(f"Loading {snap['active'].lower()}…")
+        elif snap["finished"]:
+            self._status_lbl.setText("All systems ready")
+            self._status_lbl.setStyleSheet(f"color: {C.GREEN}; background: transparent; border: none;")
+        else:
+            self._status_lbl.setText("Starting up…")
 
-    def set_status(self, text: str) -> None:
-        self._status_lbl.setText(text)
-        col = C.TEXT if "online" in text.lower() else C.TEXT_DIM
-        self._status_lbl.setStyleSheet(f"color: {col}; background: transparent;")
+        self.set_stages(snap["stages"])
+
+        for stage in snap["stages"]:
+            row = self._rows.get(stage["key"])
+            if not row:
+                continue
+            bar = row["bar"]
+            st = row["status"]
+            state = stage["state"]
+            if state == "done":
+                bar.setValue(100)
+                bar.set_color(C.GREEN)
+                st.setText("READY")
+                st.setStyleSheet(f"color: {C.GREEN}; background: transparent; border: none;")
+                row["name"].setStyleSheet(f"color: {C.TEXT}; background: transparent; border: none;")
+            elif state == "error":
+                bar.setValue(100)
+                bar.set_color(C.RED)
+                st.setText("FAILED")
+                st.setStyleSheet(f"color: {C.RED}; background: transparent; border: none;")
+            elif state == "running":
+                bar.setValue(max(2, int(stage["progress"] * 100)))
+                bar.set_color(C.ACC)
+                st.setText(stage["detail"] or "LOADING")
+                st.setStyleSheet(f"color: {C.ACC}; background: transparent; border: none;")
+            else:
+                bar.setValue(0)
+                bar.set_color(C.BORDER)
+                st.setText("WAITING")
+                st.setStyleSheet(f"color: {C.TEXT_DIM}; background: transparent; border: none;")
+
+
+class _ProgressBar(QWidget):
+    """Slim progress bar painted directly — a QProgressBar chunk cannot be
+    given a rounded, gradient fill without fighting the style sheet."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._value = 0
+        self._color = C.ACC
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+
+    def setValue(self, value: int) -> None:
+        value = max(0, min(100, int(value)))
+        if value != self._value:
+            self._value = value
+            self.update()
+
+    def value(self) -> int:
+        return self._value
+
+    def set_color(self, color: str) -> None:
+        if color != self._color:
+            self._color = color
+            self.update()
+
+    def paintEvent(self, event):
+        from PyQt6.QtGui import QPainter, QColor, QLinearGradient
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        w = self.width()
+        h = self.height()
+        radius = h / 2
+
+        # track
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(C.BAR_BG))
+        painter.drawRoundedRect(QRectF(0, 0, w, h), radius, radius)
+
+        # fill
+        fill_w = (w * self._value) / 100.0
+        if fill_w > 0:
+            gradient = QLinearGradient(0, 0, max(fill_w, 1), 0)
+            gradient.setColorAt(0.0, QColor(self._color))
+            gradient.setColorAt(1.0, QColor(self._color).lighter(140))
+            painter.setBrush(QBrush(gradient))
+            painter.drawRoundedRect(QRectF(0, 0, max(fill_w, radius * 2), h), radius, radius)
+        painter.end()
 
 
 class _AuthBanner(QWidget):
@@ -2828,7 +2974,7 @@ class MainWindow(QMainWindow):
         body.setStyleSheet(f"""
             QSplitter::handle {{
                 background: {C.BORDER};
-                margin: 4px 0;
+                margin: 8px 0;
             }}
             QSplitter::handle:hover {{
                 background: {C.ACC};
@@ -2902,6 +3048,11 @@ class MainWindow(QMainWindow):
         self._ready = self._check_config()
         if not self._ready:
             self._show_setup()
+        else:
+            # Show the loading screen immediately — the boot sequence reports
+            # into it, so the user sees progress from the first frame
+            # instead of a blank window.
+            QTimer.singleShot(0, self._create_startup_panel)
 
         sc_mute = QShortcut(QKeySequence("F4"), self)
         sc_mute.activated.connect(self._toggle_mute)
@@ -2974,6 +3125,22 @@ class MainWindow(QMainWindow):
         if self._island_mode:
             self._toggle_island()
 
+    def closeEvent(self, event):
+        """Closing the window must behave like "ultron shutdown".
+
+        Otherwise the assistant's child processes keep running and the
+        memory that was only in memory is lost.
+        """
+        try:
+            from core.lifecycle import shutdown as _lifecycle_shutdown
+            _lifecycle_shutdown(self, speak_text="")
+        except Exception:
+            pass
+        try:
+            super().closeEvent(event)
+        except Exception:
+            pass
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         cw = self.centralWidget()
@@ -2991,13 +3158,8 @@ class MainWindow(QMainWindow):
                 (cw.height() - oh) // 2,
                 ow, oh,
             )
-        if self._startup_panel and self._startup_panel.isVisible():
-            pw, ph = 400, 310
-            self._startup_panel.setGeometry(
-                (cw.width()  - pw) // 2,
-                (cw.height() - ph) // 2,
-                pw, ph,
-            )
+        if getattr(self, "_startup_panel", None) and self._startup_panel.isVisible():
+            self._startup_panel.setGeometry(self.centralWidget().rect())
 
     # ── Startup panel (thread-safe via _startup_sig) ────────────────────
     def _on_startup_sig(self, action: str, data: str) -> None:
@@ -3005,27 +3167,22 @@ class MainWindow(QMainWindow):
         if action == "show":
             self._create_startup_panel()
         elif action in ("ready", "error"):
-            if self._startup_panel:
-                self._startup_panel.update_component(data, action)
+            # The panel polls core.startup_progress itself; the signal only
+            # marks the stage so the UI updates without waiting for the timer.
+            pass
         elif action == "status":
-            if self._startup_panel:
-                self._startup_panel.set_status(data)
+            pass
         elif action == "hide":
             if self._startup_panel:
-                # Fade out after a short pause so "READY ✓" is visible
-                QTimer.singleShot(1200, self._destroy_startup_panel)
+                # Fade out after a short pause so "READY" is visible.
+                QTimer.singleShot(900, self._destroy_startup_panel)
 
     def _create_startup_panel(self) -> None:
         if self._startup_panel and self._startup_panel.isVisible():
             return
         cw = self.centralWidget()
-        pw, ph = 400, 310
         panel = StartupPanel(cw)
-        panel.setGeometry(
-            (cw.width()  - pw) // 2,
-            (cw.height() - ph) // 2,
-            pw, ph,
-        )
+        panel.setGeometry(cw.rect())
         panel.show()
         panel.raise_()
         self._startup_panel = panel
@@ -3041,7 +3198,7 @@ class MainWindow(QMainWindow):
 
         # CPU
         cpu = snap["cpu"]
-        self._bar_cpu.set_value(cpu, f"{cpu:.0f}%")
+        self._bar_cpu.set_value(cpu, f"{cpu:.1f}%")
 
         # MEM
         mem = snap["mem"]
@@ -3113,7 +3270,7 @@ class MainWindow(QMainWindow):
         w.setStyleSheet(f"""
             #header_widget {{
                 background: {C.PANEL};
-                border-bottom: 1px solid #222222;
+                border-bottom: 1px solid {C.BORDER};
             }}
         """)
         lay = QHBoxLayout(w)
@@ -3170,7 +3327,7 @@ class MainWindow(QMainWindow):
         w.setStyleSheet(f"""
             #left_panel {{
                 background: {C.PANEL};
-                border-right: 1px solid #222222;
+                border-right: 1px solid {C.BORDER};
             }}
         """)
         lay = QVBoxLayout(w)
@@ -3240,7 +3397,7 @@ class MainWindow(QMainWindow):
 
         try:
             import json
-            cfg = json.loads(Path("config/api_keys.json").read_text(encoding="utf-8"))
+            cfg = json.loads(API_FILE.read_text(encoding="utf-8"))
             cur_llm = cfg.get("llm_model", "")
         except Exception:
             cur_llm = ""
@@ -3258,7 +3415,7 @@ class MainWindow(QMainWindow):
         # ── Separator ──
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setStyleSheet(f"background: transparent; border: none; border-top: 1px solid {C.BORDER}; margin: 0 10px; max-height: 1px;")
+        sep.setStyleSheet(f"background: transparent; border: none; border-top: 1px solid {C.BORDER}; margin: 0 12px; max-height: 1px;")
         lay.addWidget(sep)
 
         # ── Connections section ──
@@ -3329,8 +3486,8 @@ class MainWindow(QMainWindow):
         w.resize(_RIGHT_W, w.height())
         w.setStyleSheet(f"""
             #right_panel {{
-                background: {C.BG};
-                border-left: 1px solid #222222;
+                background: {C.PANEL};
+                border-left: 1px solid {C.BORDER};
             }}
         """)
         lay = QVBoxLayout(w)
@@ -3349,8 +3506,8 @@ class MainWindow(QMainWindow):
         self._input.setFixedHeight(40)
         self._input.setStyleSheet(f"""
             QLineEdit {{
-                background: #1A1A1A; color: {C.WHITE};
-                border: 1px solid #333333;
+                background: {C.PANEL2}; color: {C.TEXT};
+                border: 1px solid {C.BORDER};
                 padding: 4px 14px;
                 font-size: 13px;
             }}
@@ -3379,43 +3536,41 @@ class MainWindow(QMainWindow):
         lay.addWidget(self._build_quick_chips())
 
         # ── Buttons ──
-        btn_row = QHBoxLayout(); btn_row.setSpacing(6)
+        btn_row = QGridLayout()
         btn_row.setContentsMargins(0, 6, 0, 0)
+        btn_row.setHorizontalSpacing(4)
+        btn_row.setVerticalSpacing(4)
         self._mute_btn = QPushButton("Mic")
         self._mute_btn.setFixedHeight(30)
         self._mute_btn.setFont(QFont(_FONT, _FONT_SZ_SM))
         self._mute_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._mute_btn.clicked.connect(self._toggle_mute)
         self._style_mute_btn()
-        btn_row.addWidget(self._mute_btn)
+        self._mute_btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        btn_row.addWidget(self._mute_btn, 0, 0)
 
-        for label, cb in [
-            ("Fullscr.", self._toggle_fullscreen),
+        actions = [
             ("Providers", self._show_providers),
-            ("Ollama", self._show_ollama_models),
-            ("Mail", self._show_mail),
             ("Settings", self._show_config),
             ("Connect.", self._show_connections),
             ("Island", self._toggle_island),
-        ]:
+        ]
+        for index, (label, cb) in enumerate(actions, start=1):
             btn = QPushButton(label)
             btn.setFixedHeight(30)
-            btn.setMinimumWidth(86)
-            btn.setMaximumWidth(100)
-            btn.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed)
+            btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             btn.setFont(QFont(_FONT, 9, QFont.Weight.Bold))
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.setStyleSheet(f"""
                 QPushButton {{
                     background: transparent; color: {C.TEXT_DIM};
-                    border: 1px solid #333333;
+                    border: 1px solid {C.BORDER};
                     padding: 0px 4px;
                 }}
                 QPushButton:hover {{ color: {C.TEXT}; border: 1px solid {C.ACC}; background: {C.PRI_GHO}; }}
             """)
             btn.clicked.connect(cb)
-            btn_row.addWidget(btn)
-        btn_row.addStretch()
+            btn_row.addWidget(btn, index // 4, index % 4)
         lay.addLayout(btn_row)
 
         return w
@@ -3428,11 +3583,8 @@ class MainWindow(QMainWindow):
         lay.setSpacing(5)
         for label, cmd in [
             ("Dashboard", "open my dashboard"),
-            ("Email",     "check my emails"),
-            ("Weather",   "what's the weather"),
             ("Tasks",     "show my tasks"),
             ("Music",     "play some music"),
-            ("Terminal",  "open terminal"),
         ]:
             b = QPushButton(label)
             b.setFixedHeight(24)
@@ -3443,7 +3595,7 @@ class MainWindow(QMainWindow):
             b.setStyleSheet(f"""
                 QPushButton {{
                     background: {C.PANEL2}; color: {C.TEXT_MED};
-                    border: 1px solid #333333;
+                    border: 1px solid {C.BORDER};
                     padding: 0 10px;
                 }}
                 QPushButton:hover {{
@@ -3467,7 +3619,7 @@ class MainWindow(QMainWindow):
         w.setStyleSheet(f"""
             #footer_widget {{
                 background: {C.PANEL};
-                border-top: 1px solid #222222;
+                border-top: 1px solid {C.BORDER};
             }}
         """)
         lay = QHBoxLayout(w); lay.setContentsMargins(16, 0, 16, 0)
@@ -3760,7 +3912,7 @@ class MainWindow(QMainWindow):
         from pathlib import Path
         current = {}
         try:
-            current = json.loads(Path("config/api_keys.json").read_text(encoding="utf-8"))
+            current = json.loads(API_FILE.read_text(encoding="utf-8"))
         except Exception:
             pass
         ov = ConnectionsOverlay(self.centralWidget(), initial=current, active_tab_key=active_tab_key)
@@ -3805,6 +3957,7 @@ class MainWindow(QMainWindow):
             (cw.height() - oh) // 2,
             ow, oh,
         )
+        ov.ollama_models_requested.connect(self._show_ollama_models)
         ov.done.connect(self._on_providers_done)
         ov.show()
         self._overlay_prov = ov
@@ -3832,30 +3985,33 @@ class MainWindow(QMainWindow):
 
     def _on_providers_done(self, diff_json: str):
         import json
-        import os
-        from pathlib import Path
         try:
             diff = json.loads(diff_json)
         except Exception:
             diff = {}
-        
+
         current = {}
-        API_FILE = Path("config/api_keys.json")
         try:
             current = json.loads(API_FILE.read_text(encoding="utf-8"))
         except Exception:
             pass
-        
+
         current.update(diff)
-        
-        # Auto-resolve LLM URL based on current network
-        if current.get("llm_url_local") or current.get("llm_url_remote"):
+
+        # Auto-resolve LLM URL based on current network — only meaningful for
+        # local providers.  For a cloud provider the URL comes from the
+        # provider card, and overwriting it here would point a cloud
+        # provider at the local Ollama address.
+        provider = str(current.get("llm_provider", "") or "").strip().lower().replace("-", "_")
+        if provider in ("ollama", "openai", "") and (
+            current.get("llm_url_local") or current.get("llm_url_remote")
+        ):
             current["llm_url"] = resolve_llm_url(current)
-        
+
         # Clean up old dead key
         current.pop("ollama_url", None)
-        
-        os.makedirs("config", exist_ok=True)
+
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         API_FILE.write_text(json.dumps(current, indent=4), encoding="utf-8")
         if getattr(self, "_overlay_prov", None):
             self._overlay_prov.hide()
@@ -3871,15 +4027,23 @@ class MainWindow(QMainWindow):
             pass
 
     def _update_llm_label(self, cfg: dict | None = None):
+        """Refresh the two labels that show the active provider/model.
+
+        The footer label used to be hard-coded to "ollama · qwen2.5:0.5b",
+        so switching provider never appeared to do anything.
+        """
         try:
             if cfg is None:
                 import json
-                cfg = json.loads(Path("config/api_keys.json").read_text(encoding="utf-8"))
-            model = cfg.get("llm_model", "")
-            provider = cfg.get("llm_provider", "")
+                cfg = json.loads(API_FILE.read_text(encoding="utf-8"))
+            model = str(cfg.get("llm_model", "") or "").strip()
+            provider = str(cfg.get("llm_provider", "") or "").strip()
             text = f"LLM  {model}" if model else f"LLM  ({provider})"
             if hasattr(self, '_llm_lbl'):
                 self._llm_lbl.setText(text)
+            if hasattr(self, '_footer_llm'):
+                label = f"{provider} · {model}" if provider and model else (provider or model or "—")
+                self._footer_llm.setText(label)
         except Exception:
             pass
 
@@ -3899,7 +4063,7 @@ class JarvisUI:
         self._app.setStyle("Fusion")
         try:
             import json
-            cfg = json.loads(Path("config/api_keys.json").read_text(encoding="utf-8"))
+            cfg = json.loads(API_FILE.read_text(encoding="utf-8"))
             C.apply_theme(cfg.get("theme", "dark") == "light")
         except Exception:
             pass

@@ -9,7 +9,16 @@
       "updated": "2026-06-09"
     }
   },
-  "preferences": {},
+  "preferences": {
+    "favorite_color": {
+      "value": "blue",
+      "updated": "2026-11-11"
+    },
+    "favorite_food": {
+      "value": "Italian",
+      "updated": "2026-11-11"
+    }
+  },
   "projects": {},
   "relationships": {},
   "wishes": {},

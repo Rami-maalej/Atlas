@@ -9,7 +9,7 @@ class _VADBuffer:
     def __init__(
         self,
         sample_rate:    int   = 16_000,
-        silence_sec:    float = 0.18,  # ↓300ms→180ms: shaves ~120ms off every turn
+        silence_sec:    float = 0.12,  # ↓300→180→120ms: shaves ~180ms off every turn
         speech_thresh:  float = 0.008,  # RMS above this = speech  (0.008 catches voice at 3-4 m; raise if mic picks up too much room noise)
         silence_thresh: float = 0.004,  # RMS below this = silence (half of speech_thresh — hysteresis prevents mid-sentence cuts)
         min_speech_sec: float = 0.25,   # ↓0.3→0.25 s: accept slightly shorter utterances

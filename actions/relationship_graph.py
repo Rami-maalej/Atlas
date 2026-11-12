@@ -5,10 +5,11 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from core.paths import memory_path
 
 logger = logging.getLogger("relationship_graph")
 
-GRAPH_PATH = Path(__file__).resolve().parent.parent / "memory" / "relationship_graph.json"
+GRAPH_PATH = memory_path("relationship_graph.json")
 _lock = threading.Lock()
 
 NODE_TYPES = ["project", "repository", "server", "database", "credentials"]

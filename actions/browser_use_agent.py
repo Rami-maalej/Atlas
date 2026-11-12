@@ -12,7 +12,11 @@ logger = logging.getLogger("browser_use")
 
 
 def _find_config() -> dict:
-    p = Path(__file__).resolve().parent.parent / "config" / "api_keys.json"
+    try:
+        from core.paths import config_path
+        p = config_path("api_keys.json")
+    except Exception:
+        p = Path(__file__).resolve().parent.parent / "config" / "api_keys.json"
     try:
         cfg = json.loads(p.read_text())
     except Exception:
@@ -23,8 +27,19 @@ def _find_config() -> dict:
 
 
 def _build_llm_client() -> dict | None:
+    """Build the browser-use LLM client for the configured provider.
+
+    ``browser_use`` is an optional dependency — when it is missing the caller
+    gets a clear message instead of an ImportError traceback.
+    """
+    try:
+        import browser_use  # noqa: F401
+    except ImportError as e:
+        logger.warning("browser_use not installed: %s", e)
+        return None
+
     cfg = _find_config()
-    provider = cfg.get("llm_provider", "ollama")
+    provider = cfg.get("llm_provider", "nvidia-nim")
     llm_url = cfg.get("llm_url", "http://localhost:11434")
     llm_model = cfg.get("llm_model", "llama3.2")
     api_key = cfg.get("llm_api_key", "not-needed")

@@ -4,10 +4,11 @@ import logging
 import os
 from pathlib import Path
 from typing import Any
+from core.paths import memory_path
 
 logger = logging.getLogger("security_vault")
 
-VAULT_PATH = Path(__file__).resolve().parent.parent / "memory" / "secrets.vault.json"
+VAULT_PATH = memory_path("secrets.vault.json")
 _VAULT_KEY = os.environ.get("JARVIS_VAULT_KEY", "")
 
 # ── Encryption helpers (Fernet) ──────────────────────────────────────────

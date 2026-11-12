@@ -7,10 +7,11 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
+from core.paths import memory_path
 
 logger = logging.getLogger("federation")
 
-MEMORY_PATH = Path(__file__).resolve().parent.parent / "memory" / "federation"
+MEMORY_PATH = memory_path("federation")
 MEMORY_PATH.mkdir(parents=True, exist_ok=True)
 
 _lock = threading.Lock()

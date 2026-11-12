@@ -14,13 +14,16 @@ class GitHubClient:
     def _get_client(self):
         if self._gh is not None:
             return self._gh
+        # Check the token BEFORE the import: a missing token is the user's
+        # problem to fix, a missing package is ours.  Reporting them in the
+        # right order means the error actually says what to do.
+        if not self._token:
+            raise ValueError("GitHub token required — set GITHUB_TOKEN env or pass token= arg")
         try:
             from github import Github
         except ImportError:
             raise ImportError("PyGithub not installed — pip install PyGithub")
 
-        if not self._token:
-            raise ValueError("GitHub token required — set GITHUB_TOKEN env or pass token= arg")
         self._gh = Github(self._token)
         return self._gh
 

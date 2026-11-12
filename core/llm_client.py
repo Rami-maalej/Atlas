@@ -77,11 +77,11 @@ BASE_DIR    = get_base_dir()
 CONFIG_PATH = BASE_DIR / "config" / "api_keys.json"
 
 _DEFAULTS = {
-    "llm_url":          "http://localhost:11434",
+    "llm_url":          "https://integrate.api.nvidia.com/v1",
     "llm_url_local":    "http://localhost:11434",
     "llm_url_remote":   "",
-    "llm_model":        "qwen2.5:0.5b",
-    "llm_provider":     "ollama",
+    "llm_model":        "meta/llama-3.1-8b-instruct",
+    "llm_provider":     "nvidia-nim",
 }
 
 _PROVIDER_DEFAULTS: dict[str, tuple[str, str]] = {
@@ -192,7 +192,7 @@ def resolve_llm_url(cfg: dict) -> str:
 
 def get_llm_provider() -> str:
     """Returns 'ollama', 'openai', 'nvidia-nim', 'openrouter', 'groq', or 'gemini'."""
-    raw = _load_config().get("llm_provider", "ollama").strip().lower().replace(" ", "_").replace("-", "_")
+    raw = _load_config().get("llm_provider", "nvidia-nim").strip().lower().replace(" ", "_").replace("-", "_")
     if raw in ("nvidia_nim", "nvidia"):
         return "nvidia-nim"
     if raw in ("openrouter", "open_router"):
@@ -217,7 +217,7 @@ def _load_config() -> dict:
     except Exception:
         pass  # return stale cache on error
     # Auto-resolve LLM URL from network-aware keys — only for local providers
-    provider = _CONFIG_CACHE.get("llm_provider", "ollama")
+    provider = _CONFIG_CACHE.get("llm_provider", "nvidia-nim")
     if provider not in ("groq", "openai", "openrouter", "nvidia-nim", "gemini"):
         if _CONFIG_CACHE.get("llm_url_local") or _CONFIG_CACHE.get("llm_url_remote"):
             _CONFIG_CACHE["llm_url"] = resolve_llm_url(_CONFIG_CACHE)

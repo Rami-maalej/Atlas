@@ -88,7 +88,7 @@ class ContextBus:
     def get_summary(self) -> str:
         ctx = self.get_all()
         if not ctx:
-            return "No context data."
+            return "I don't have any live system context to report yet."
         lines = [f"Context snapshot ({len(ctx)} keys):"]
         for k, v in sorted(ctx.items()):
             lines.append(f"  {k} = {v}")

@@ -54,6 +54,25 @@ class JarvisLocal:
         self._tts_queue:      queue.Queue = queue.Queue()
         self._conversation:   list[dict]  = []
         self._conv_lock = threading.Lock()
+        # The Obsidian vault is the long-term home: pull in any facts edited
+        # by hand since the last run so the assistant starts up informed.
+        try:
+            from memory.memory_manager import import_vault_facts
+            import_vault_facts()
+        except Exception:
+            pass
+        try:
+            from memory.vector_memory import recent_conversations
+            for turn in recent_conversations(limit=5):
+                user_text = str(turn.get("user", "")).strip()
+                assistant_text = str(turn.get("assistant", "")).strip()
+                if user_text and assistant_text:
+                    self._conversation.extend((
+                        {"role": "user", "content": user_text},
+                        {"role": "assistant", "content": assistant_text},
+                    ))
+        except Exception:
+            pass
         self._generation = 0
         self._processing_lock = threading.Lock()
         self._prefetch_thread = None
@@ -157,18 +176,46 @@ class JarvisLocal:
         """
         try:
             self.ui.on_reconfigure = self.reconfigure
+            # ── Boot progress ──────────────────────────────────────────────
+            # The loading screen shows real progress, so every stage reports
+            # into the shared registry as it advances.
+            from core.startup_progress import PROGRESS
+            PROGRESS.add_many([
+                ("config",   "Configuration",       0.5),
+                ("provider", "AI provider",         1.5),
+                ("memory",   "Memory & vault",      1.5),
+                ("stt",      "Speech recognition",  3.0),
+                ("llm",      "Language model",      2.0),
+                ("tts",      "Voice synthesis",     2.5),
+                ("services", "Background services", 1.0),
+            ])
+            PROGRESS.start("config")
             # ── LLM Server ───────────────────────────────────────────────
             provider = get_llm_provider()
+            PROGRESS.update("provider", 0.1, f"checking {provider}")
             self.ui.write_log(f"SYS: Checking {provider}…")
             if ensure_ollama_running():
                 self.ui.write_log(f"SYS: {provider} OK.")
+                PROGRESS.update("provider", 1.0, "ready")
             else:
                 self.ui.write_log(f"ERR: {provider} unavailable.")
+                PROGRESS.update("provider", 1.0, "unavailable")
+            PROGRESS.finish("provider")
             # ── Config ────────────────────────────────────────────────────
             stt_engine   = self._config.get("stt_engine",   "whisper").lower()
             stt_language = self._config.get("stt_language", "auto")
             stt_model    = self._config.get("stt_model",    "base")
             tts_engine   = self._config.get("tts_engine",   "edgetts").lower()
+            PROGRESS.finish("config")
+            # ── Memory & vault ────────────────────────────────────────────
+            PROGRESS.start("memory", "reading memory")
+            try:
+                from memory.memory_manager import import_vault_facts
+                import_vault_facts()
+                PROGRESS.update("memory", 0.8, "memory loaded")
+            except Exception:
+                pass
+            PROGRESS.finish("memory")
             # ── Startup progress panel ────────────────────────────────────
             self.ui.show_startup_panel()
             _warmup_done = threading.Event()
@@ -176,18 +223,20 @@ class JarvisLocal:
             # ── LLM warmup thread ─────────────────────────────────────────
             def _do_warmup():
                 try:
+                    PROGRESS.update("llm", 0.2, "warming up")
                     warmup_model(system_prompt=_load_system_prompt())
                     self.ui.write_log("SYS: LLM ready.")
-                    self.ui.mark_startup_ready("llm")
+                    PROGRESS.finish("llm")
                 except Exception as e:
                     self.ui.write_log(f"ERR: LLM warmup — {e}")
-                    self.ui.mark_startup_ready("llm", error=True)
+                    PROGRESS.finish("llm", error=True)
                 finally:
                     _warmup_done.set()
             # ── STT load thread ───────────────────────────────────────────
             def _do_stt():
                 try:
                     self.ui.write_log(f"SYS: Loading {stt_engine.upper()} STT…")
+                    PROGRESS.update("stt", 0.15, "loading model")
                     if stt_engine == "vosk":
                         from core.stt import VoskSTT
                         self._stt = VoskSTT(
@@ -196,31 +245,36 @@ class JarvisLocal:
                     else:
                         from core.stt import WhisperSTT
                         self._stt = WhisperSTT(stt_model, language=stt_language)
+                    PROGRESS.update("stt", 0.85, "warming up")
                     self.ui.write_log("SYS: STT ready.")
-                    self.ui.mark_startup_ready("stt")
+                    PROGRESS.finish("stt")
                 except Exception as e:
                     self.ui.write_log(f"ERR: STT — {e}")
-                    self.ui.mark_startup_ready("stt", error=True)
+                    PROGRESS.finish("stt", error=True)
                 finally:
                     _stt_done.set()
             # ── TTS load thread — does NOT block going online ─────────────
             def _do_tts():
                 try:
                     self.ui.write_log(f"SYS: Loading {tts_engine.upper()} TTS…")
+                    PROGRESS.update("tts", 0.15, "loading engine")
                     if tts_engine == "kokoro":
                         self.ui.write_log("SYS: Kokoro — loading model + compiling JIT…")
+                        PROGRESS.update("tts", 0.4, "compiling")
                     from core.tts import create_tts_player
                     self._tts = create_tts_player(self._config)
                     self._tts_ready.set()          # unblock _tts_worker
                     self.ui.write_log("SYS: TTS ready.")
-                    self.ui.mark_startup_ready("tts")
+                    PROGRESS.finish("tts")
+                    PROGRESS.complete()
                     self.ui.set_startup_status("● All systems ready.")
                     self.ui.hide_startup_panel()
                     self.speak("Atlantis fully online.")
                 except Exception as e:
                     traceback.print_exc()
                     self.ui.write_log(f"ERR: TTS — {e}")
-                    self.ui.mark_startup_ready("tts", error=True)
+                    PROGRESS.finish("tts", error=True)
+                    PROGRESS.complete()
                     self._tts_ready.set()
                     self.ui.set_startup_status("● Speech synthesis failed — text mode only.")
                     self.ui.hide_startup_panel()
@@ -236,6 +290,7 @@ class JarvisLocal:
             _warmup_done.wait(timeout=15)
             _stt_done.wait(timeout=60)
             # ── Start background services ──────────────────────────────────
+            PROGRESS.start("services", "starting services")
             def _scheduler_executor(name: str, command: str, job_type: str):
                 if job_type == "shell":
                     from actions.computer_control import computer_control
@@ -255,6 +310,7 @@ class JarvisLocal:
             get_scheduler().set_executor(_scheduler_executor)
             get_scheduler().start()
             self.ui.write_log("SYS: Scheduler started.")
+            PROGRESS.update("services", 0.5, "scheduler running")
             # ── Autonomous proactive mind (nudges, briefings, vault journal) ──
             try:
                 from core.proactive import start_proactive
@@ -262,6 +318,7 @@ class JarvisLocal:
                 self.ui.write_log("SYS: Proactive mind started.")
             except Exception as pe:
                 self.ui.write_log(f"ERR: Proactive — {pe}")
+            PROGRESS.finish("services")
             # ── Go online immediately ──────────────────────────────────────
             self.ui.write_log("SYS: ATLANTIS online.")
             self.ui.set_state("LISTENING")

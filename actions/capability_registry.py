@@ -13,6 +13,7 @@ import re
 import threading
 from pathlib import Path
 from typing import Any, Callable
+from core.paths import memory_path
 
 logger = logging.getLogger("capability_registry")
 
@@ -118,7 +119,7 @@ def get_manifest() -> dict[str, Any]:
 def save_manifest(path: str | Path | None = None) -> str:
     """Save the capability manifest to a JSON file."""
     if path is None:
-        path = Path(__file__).resolve().parent.parent / "memory" / "capabilities.json"
+        path = memory_path("capabilities.json")
     data = get_manifest()
     Path(path).write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
     return str(path)

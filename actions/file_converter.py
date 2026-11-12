@@ -110,6 +110,8 @@ def _open_pptx_text(path: str) -> str:
 
 
 def _open_xlsx_text(path: str) -> str:
+    if load_workbook is None:
+        raise RuntimeError("openpyxl not installed — pip install openpyxl")
     wb = load_workbook(path, read_only=True, data_only=True)
     lines = []
     for ws in wb.worksheets:
@@ -130,7 +132,9 @@ def convert_image(source: str, target_ext: str, **kwargs) -> str:
 
 def convert_image_to_pdf(source: str, **kwargs) -> str:
     if img2pdf is None:
-        raise RuntimeError("img2pdf not installed")
+        raise RuntimeError(
+            "img2pdf not installed — run: pip install img2pdf"
+        )
     img = Image.open(source)
     if img.mode != "RGB":
         img = img.convert("RGB")
