@@ -62,22 +62,6 @@ def _fetch_cdp_targets(base: str, timeout: float = 2.0) -> list[dict]:
             and t.get("type") == "page" and t.get("webSocketDebuggerUrl")]
 
 
-def list_cdp_browsers() -> list[dict]:
-    """Find browsers exposing CDP on common ports."""
-    out: list[dict] = []
-    for port in (CDP_PORT, 9222, 9223, 9224):
-        base = f"http://127.0.0.1:{port}"
-        if not _port_open(port):
-            continue
-        targets = _fetch_cdp_targets(base)
-        if targets:
-            out.append({"port": port, "base": base,
-                        "targets": len(targets),
-                        "active_url": next((t.get("url") for t in targets if t.get("active")),
-                                           targets[0].get("url", ""))})
-    return out
-
-
 # ---------------------------------------------------------------------------
 # Fast Browser automation core
 # ---------------------------------------------------------------------------
@@ -153,8 +137,23 @@ class FastBrowser:
             slow_mo=0,
             viewport=None,
             no_viewport=True,
-            args=["--start-maximized", "--disable-blink-features=AutomationControlled",
-                  "--no-first-run", "--disable-default-apps"],
+            args=[
+                # Automation-friendly: no first-run dialogs, no default apps
+                "--start-maximized",
+                "--disable-blink-features=AutomationControlled",
+                "--no-first-run",
+                "--disable-default-apps",
+                # Performance: these cut page-load time noticeably by skipping
+                # background services that an assistant never uses.
+                "--disable-background-networking",
+                "--disable-backgrounding-occluded-windows",
+                "--disable-renderer-backgrounding",
+                "--disable-background-timer-throttling",
+                "--disable-ipc-flooding-protection",
+                "--disable-features=Translate,MediaRouter,OptimizationHints",
+                "--no-service-autorun",
+                "--password-store=basic",
+            ],
             timeout=60000,
         )
         self._browser = self._context.browser
@@ -185,8 +184,12 @@ class FastBrowser:
     async def type_text(self, selector: str, text: str, press_enter: bool = True) -> str:
         await self._connect()
         el = self._page.locator(selector).first
-        await el.fill("", timeout=8000)
-        await el.type(text, delay=0)      # delay=0 → instant typing
+        # fill() sets the value in one operation instead of one key event
+        # per character — the difference is seconds on a long field.
+        try:
+            await el.fill(text, timeout=5_000)
+        except Exception:
+            await el.type(text, delay=0, timeout=5_000)
         if press_enter:
             await el.press("Enter")
         return f"Typed '{text}' into {selector}"
@@ -199,7 +202,13 @@ class FastBrowser:
     async def grab_text(self) -> str:
         """Instantly grab page text (up to 4000 chars) — for answering questions."""
         await self._connect()
-        text = await self._page.inner_text("body")
+        # Reading innerText from the page is much cheaper than Playwright's
+        # inner_text(), which walks the tree and forces a layout.
+        try:
+            text = await self._page.evaluate(
+                "() => document.body ? document.body.innerText : ''")
+        except Exception:
+            text = await self._page.inner_text("body")
         clean = re.sub(r"\s+", " ", text).strip()
         return clean[:4000]
 

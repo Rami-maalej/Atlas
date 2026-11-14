@@ -56,9 +56,3 @@ def config_path(name: str) -> Path:
     """Return the path of a named file inside the config directory."""
     return config_dir() / name
 
-
-def ensure_memory_dir() -> Path:
-    """Return the memory directory, creating it when missing."""
-    path = memory_dir()
-    path.mkdir(parents=True, exist_ok=True)
-    return path

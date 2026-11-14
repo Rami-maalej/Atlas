@@ -138,11 +138,6 @@ def _load_store() -> dict:
     except Exception:
         return {"memories": [], "conversations": []}
 
-def _invalidate_store_cache() -> None:
-    """Force the next _load_store() to re-read from disk."""
-    global _store_mtime
-    _store_mtime = 0.0
-
 def _save_store(store: dict) -> None:
     global _store_cache, _store_mtime
     VEC_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -294,12 +289,6 @@ def get_relevant_context(query: str, top_k: int = 5) -> str:
             parts.append(f"  User: {c['user'][:100]}")
             parts.append(f"  Jarvis: {c['assistant'][:200]}")
     return "\n".join(parts) if parts else ""
-
-def get_all_categories() -> list[str]:
-    with _lock:
-        store = _load_store()
-        cats = set(m.get("category", "general") for m in store.get("memories", []))
-        return sorted(cats)
 
 def get_memory_count() -> int:
     with _lock:

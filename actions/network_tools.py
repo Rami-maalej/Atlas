@@ -22,12 +22,3 @@ def run_speedtest(parameters: dict | None = None, player=None) -> str:
     except Exception as e:
         logger.error("Speedtest error: %s", e)
         return f"Speedtest failed: {str(e)}"
-
-def get_ip_info(parameters: dict | None = None, player=None) -> str:
-    import requests
-    try:
-        resp = requests.get("https://ipapi.co/json/", timeout=10)
-        data = resp.json()
-        return f"IP: {data['ip']}, City: {data['city']}, ISP: {data['org']}"
-    except Exception as e:
-        return f"Could not fetch IP info: {e}"

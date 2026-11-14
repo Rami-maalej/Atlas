@@ -15,10 +15,6 @@ def ensure_config_dir() -> None:
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def config_exists() -> bool:
-    return CONFIG_FILE.exists()
-
-
 def save_config(cfg: dict) -> None:
     ensure_config_dir()
     existing: dict = {}
@@ -45,12 +41,3 @@ def load_config() -> dict:
     """Alias for load_api_keys for compatibility."""
     return load_api_keys()
 
-
-def is_configured() -> bool:
-    cfg = load_api_keys()
-    return (
-        bool(cfg.get("os_system")) and
-        bool(cfg.get("llm_model")) and
-        bool(cfg.get("stt_engine")) and
-        bool(cfg.get("tts_engine"))
-    )

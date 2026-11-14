@@ -160,33 +160,6 @@ def list_projects(workspace: str = "") -> list[dict[str, Any]]:
     return projects
 
 
-def get_project_status(slug: str, workspace: str = "") -> str:
-    ws = Path(workspace) if workspace else WORKSPACE_DIR
-    project_dir = ws / slug
-    if not project_dir.exists():
-        return f"Project '{slug}' not found."
-
-    manifest_path = project_dir / "manifest.json"
-    if manifest_path.exists():
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    else:
-        manifest = {"project_name": slug, "slug": slug, "description": "", "tech_stack": "", "phases": []}
-
-    lines = [f"Project: {manifest.get('project_name', slug)}"]
-    if manifest.get("description"):
-        lines.append(f"  Description: {manifest['description']}")
-    if manifest.get("tech_stack"):
-        lines.append(f"  Tech Stack: {manifest['tech_stack']}")
-
-    lines.append("  Phases:")
-    for role in ROLES:
-        role_dir = project_dir / role["name"]
-        status = "✓" if role_dir.exists() and any(role_dir.iterdir()) else "○"
-        lines.append(f"    {status} {role['label']}")
-
-    return "\n".join(lines)
-
-
 def scaffold_project(
     parameters: dict[str, Any] | None = None,
     speak: Callable | None = None,

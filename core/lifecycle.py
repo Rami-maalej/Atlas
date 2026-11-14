@@ -240,12 +240,3 @@ def shutdown(ui=None, speak_text: str = "Goodbye.") -> None:
         # Fall back to a hard exit when the Qt signal is unavailable.
         os._exit(0)
 
-
-def force_exit(code: int = 0) -> None:
-    """Last-resort exit that still runs the atexit handlers."""
-    try:
-        sys.stdout.flush()
-        sys.stderr.flush()
-    except Exception:
-        pass
-    os._exit(code)

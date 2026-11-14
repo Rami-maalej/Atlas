@@ -40,14 +40,6 @@ _creds = None
 _auth_status_listeners: list[callable] = []
 
 
-def _get_credentials_path() -> Path:
-    return CREDENTIALS_PATH
-
-
-def _get_token_path() -> Path:
-    return TOKEN_PATH
-
-
 def on_auth_change(callback: callable) -> None:
     _auth_status_listeners.append(callback)
 
@@ -274,18 +266,6 @@ def search_drive(query: str, max_results: int = 10) -> list[dict]:
         }
         for f in results.get("files", [])
     ]
-
-
-def upload_drive(file_path: str, mime_type: str = None) -> dict:
-    from googleapiclient.http import MediaFileUpload
-    service = _get_service("drive", "v3")
-    name = Path(file_path).name
-    if not mime_type:
-        import mimetypes
-        mime_type = mimetypes.guess_type(file_path)[0] or "application/octet-stream"
-    media = MediaFileUpload(file_path, mimetype=mime_type, resumable=True)
-    result = service.files().create(body={"name": name}, media_body=media).execute()
-    return {"id": result.get("id"), "name": result.get("name")}
 
 
 # ── Docs ──────────────────────────────────────────────────────────────────

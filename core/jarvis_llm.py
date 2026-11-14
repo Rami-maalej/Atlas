@@ -489,10 +489,6 @@ def _llm_error_hint(short: str) -> str:
         return f"Cloud provider unreachable — check your API key and internet connection"
     return ""
 
-def hint_short(hint: str) -> str:
-    """Return a short spoken version of an error hint."""
-    return hint or "I cannot do that."
-
 # ------------------------------------------------------------------
 # STT listening loops
 # ------------------------------------------------------------------

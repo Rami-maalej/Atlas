@@ -83,26 +83,6 @@ def _url_quote(s: str) -> str:
         return s
 
 
-def _user_agent() -> str:
-    if _OS == "Windows":
-        return (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/124.0.0.0 Safari/537.36"
-        )
-    if _OS == "Darwin":
-        return (
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/124.0.0.0 Safari/537.36"
-        )
-    return (
-        "Mozilla/5.0 (X11; Linux x86_64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/124.0.0.0 Safari/537.36"
-    )
-
-
 def _real_profile_dir(browser: str) -> str:
     home  = Path.home()
     local = os.environ.get("LOCALAPPDATA", "")
@@ -420,6 +400,65 @@ def _infer_field_type(name_lower: str) -> str | None:
     return None
 
 
+#: Scans a page for form fields in a single round-trip.  Doing this with
+#: one ``evaluate`` per attribute costs ~9 browser calls per field.
+_FORM_SCAN_JS = """
+() => {
+  const SKIP = ['submit','button','hidden','image','reset','file'];
+  const out = [];
+  for (const el of document.querySelectorAll('input, select, textarea')) {
+    const tag = el.tagName.toLowerCase();
+    const type = (el.getAttribute('type') || 'text').toLowerCase();
+    if (SKIP.includes(type)) continue;
+    const id = el.getAttribute('id') || '';
+    let label = '';
+    if (id) {
+      const forLabel = document.querySelector('label[for="' + CSS.escape(id) + '"]');
+      if (forLabel) label = forLabel.innerText || '';
+    }
+    if (!label) {
+      const parent = el.closest('label');
+      if (parent) label = parent.innerText || '';
+    }
+    out.push({
+      tag: tag,
+      type: type,
+      name: el.getAttribute('name') || '',
+      placeholder: el.getAttribute('placeholder') || '',
+      id: id,
+      required: el.hasAttribute('required'),
+      label: label.trim(),
+      aria_label: el.getAttribute('aria-label') || '',
+    });
+  }
+  return out;
+}
+"""
+
+
+async def _fast_type(el, text: str) -> None:
+    """Type text into an element without the per-character delay.
+
+    ``locator.type(text, delay=50)`` sends one key event per character and
+    waits 50 ms between them — a 40-character field takes two seconds of
+    pure sleeping.  ``fill()`` sets the value in a single operation and
+    dispatches the same ``input``/``change`` events, so the page sees a
+    normal edit.  It fails on contentEditable and non-input elements,
+    where we fall back to the slow path.
+    """
+    if not text:
+        return
+    try:
+        await el.fill(text, timeout=5_000)
+        return
+    except Exception:
+        pass
+    try:
+        await el.type(text, delay=0, timeout=5_000)
+    except Exception:
+        await el.type(text, delay=10, timeout=5_000)
+
+
 def _generate_field_value(name_lower: str, html_type: str, tag: str) -> str | None:
     if tag == "select":
         return "1"
@@ -616,7 +655,6 @@ class _BrowserSession:
                 Path(jarvis).mkdir(parents=True, exist_ok=True)
                 self._context = await engine_obj.launch_persistent_context(jarvis, **kwargs)
 
-            await asyncio.sleep(0.5)  
             self._page = await self._context.new_page()
             print(f"[Browser] ✅ Firefox launched")
             return
@@ -631,7 +669,6 @@ class _BrowserSession:
                 "no_viewport": True,
             }
             self._context = await engine_obj.launch_persistent_context(safari_profile, **kwargs)
-            await asyncio.sleep(0.5)
             self._page = await self._context.new_page()
             print(f"[Browser] ✅ Safari launched")
             return
@@ -649,6 +686,16 @@ class _BrowserSession:
                 "--no-first-run",
                 "--disable-default-apps",
                 "--no-default-browser-check",
+                # Performance: skip background services an assistant never
+                # uses — measurably faster page loads.
+                "--disable-background-networking",
+                "--disable-backgrounding-occluded-windows",
+                "--disable-renderer-backgrounding",
+                "--disable-background-timer-throttling",
+                "--disable-ipc-flooding-protection",
+                "--disable-features=Translate,MediaRouter,OptimizationHints",
+                "--no-service-autorun",
+                "--password-store=basic",
             ],
         }
 
@@ -665,7 +712,6 @@ class _BrowserSession:
 
         try:
             self._context = await engine_obj.launch_persistent_context(profile, **kwargs)
-            await asyncio.sleep(0.5) 
             self._page = await self._context.new_page()
             print(f"[Browser] ✅ Launched [{label}] profile={profile}")
             return
@@ -678,7 +724,6 @@ class _BrowserSession:
 
         try:
             self._context = await engine_obj.launch_persistent_context(jarvis_profile, **kwargs)
-            await asyncio.sleep(0.5)
             self._page = await self._context.new_page()
             print(f"[Browser] ✅ Launched [{label}] with JARVIS profile")
         except Exception as e2:
@@ -690,7 +735,6 @@ class _BrowserSession:
         # If somehow page got closed, open a fresh one
         if self._page is None or self._page.is_closed():
             self._page = await self._context.new_page()
-            await asyncio.sleep(0.2)
         return self._page
 
     async def go_to(self, url: str) -> str:
@@ -702,8 +746,10 @@ class _BrowserSession:
         async def _do_goto(p: Page) -> str:
             """Attempt navigation and return the resulting URL (may still be blank)."""
             try:
+                # domcontentloaded fires as soon as the DOM is parsed — the
+                # page is already usable, and waiting for 'load' would add
+                # hundreds of ms for images and trackers that never matter.
                 await p.goto(url, wait_until="domcontentloaded", timeout=30_000)
-                await asyncio.sleep(0.3)
             except PlaywrightTimeout:
                 pass   # page may have partially loaded — check URL below
             except Exception as e:
@@ -762,7 +808,7 @@ class _BrowserSession:
             el = page.locator(selector).first if selector else page.locator(":focus")
             if clear_first:
                 await el.clear()
-            await el.type(text, delay=50)
+            await _fast_type(el, text)
             return "Text typed."
         except Exception as e:
             return f"Type error: {e}"
@@ -787,7 +833,13 @@ class _BrowserSession:
     async def get_text(self) -> str:
         page = await self._get_page()
         try:
-            text = await page.inner_text("body")
+            # inner_text() walks every node and forces a layout; reading
+            # document.body.innerText straight from the page is several
+            # times faster on large documents.
+            text = await page.evaluate(
+                "() => document.body ? document.body.innerText : ''")
+            if not text:
+                text = await page.inner_text("body")
             return text[:4_000]
         except Exception as e:
             return f"Could not get page text: {e}"
@@ -803,46 +855,26 @@ class _BrowserSession:
             try:
                 el = page.locator(selector).first
                 await el.clear()
-                await el.type(str(value), delay=40)
+                await _fast_type(el, str(value))
                 results.append(f"✓ {selector}")
             except Exception as e:
                 results.append(f"✗ {selector}: {e}")
         return "Form filled: " + ", ".join(results)
 
     async def detect_form_fields(self) -> list[dict]:
-        """Scan the page for form fields and return their metadata."""
+        """Scan the page for form fields and return their metadata.
+
+        The whole scan runs as ONE ``evaluate`` call.  Asking the page for
+        every attribute of every field separately costs ~9 round-trips per
+        field, which on a sign-up form means hundreds of round-trips before
+        a single character is typed.
+        """
         page = await self._get_page()
-        fields = []
         try:
-            inputs = await page.query_selector_all("input, select, textarea")
-            for el in inputs:
-                tag = await el.evaluate("el => el.tagName.toLowerCase()")
-                tp = await el.evaluate("el => (el.getAttribute('type') || 'text').toLowerCase()")
-                if tp in ("submit", "button", "hidden", "image", "reset", "file"):
-                    continue
-                name = await el.evaluate("el => el.getAttribute('name') || ''")
-                placeholder = await el.evaluate("el => el.getAttribute('placeholder') || ''")
-                el_id = await el.evaluate("el => el.getAttribute('id') || ''")
-                required = await el.evaluate("el => el.hasAttribute('required')")
-                aria_label = await el.evaluate("el => el.getAttribute('aria-label') || ''")
-                label_text = ""
-                if el_id:
-                    label_el = await page.query_selector(f'label[for="{el_id}"]')
-                    if label_el:
-                        label_text = await label_el.inner_text()
-                if not label_text:
-                    parent = await el.evaluate("el => el.closest('label')")
-                    if parent:
-                        label_text = await page.evaluate("el => el.innerText", parent)
-                fields.append({
-                    "tag": tag, "type": tp, "name": name,
-                    "placeholder": placeholder, "id": el_id,
-                    "required": required, "label": label_text.strip(),
-                    "aria_label": aria_label,
-                })
+            fields = await page.evaluate(_FORM_SCAN_JS)
+            return fields or []
         except Exception as e:
             return [{"error": str(e)}]
-        return fields
 
     async def auto_fill_form(self, form_data: dict | None = None) -> str:
         """Auto-detect form fields and fill them with provided or generated data."""
@@ -871,7 +903,7 @@ class _BrowserSession:
                     el = await _find_field(page, f)
                     if el:
                         await el.clear()
-                        await el.type(str(value), delay=30)
+                        await _fast_type(el, str(value))
                         filled.append(f"✓ {f['name'] or f['label'] or tp} → {value[:30]}")
                     else:
                         filled.append(f"✗ {f['name'] or tp}: field not found")
@@ -922,7 +954,7 @@ class _BrowserSession:
                 if await el.count() == 0:
                     continue
                 await el.clear()
-                await el.type(text, delay=50)
+                await _fast_type(el, text)
                 return f"Typed into ({method}): '{description}'"
             except Exception:
                 continue

@@ -145,12 +145,27 @@ _INTENTS: list[dict[str, Any]] = [
         "requires_ai": False,
     },
     {
+        "name": "news",
+        "subsystem": "tools",
+        "patterns": [
+            r'(latest|breaking|top|recent)\s+(?:\w+\s+)?(news|headlines)\b',
+            r'(tech|business|science|health|sports|entertainment)\s+news\b',
+            r'news\s+(about|on|for)\s+.+',
+            r"what\'?s\s+(the\s+)?(?:latest\s+)?(?:\w+\s+)?news\b",
+            r'news\s+(today|now)\b',
+            r'quoi\s+de\s+neuf',
+            r'derni[eè]re\s+(info|actualit[eé]s)',
+            r'actualit[eé]s\s+de\s+.+',
+        ],
+        "handler": "news",
+        "requires_ai": False,
+    },
+    {
         "name": "news_pro",
         "subsystem": "tools",
         "patterns": [
             r'get\s+latest\s+news\s+about\s+.+',
             r'actualités\s+de\s+.+',
-            r'tech\s+news',
             r'business\s+news',
         ],
         "handler": "news_pro",
@@ -2378,7 +2393,7 @@ class IntentRouter:
                     params["path"] = p.rstrip("?")
                     break
 
-        elif intent["name"] == "news":
+        elif intent["name"] in ("news", "news_pro"):
             # Extract topic: "tunisia news" → topic=tunisia, "tech news" → topic=tech
             m = re.search(r"(\w+)\s+news\b", text)
             if m:

@@ -55,12 +55,6 @@ def load_profile() -> dict:
         return _cache
 
 
-def invalidate_profile_cache() -> None:
-    """Drop the in-process cache so an external edit (UI, user) is picked up."""
-    global _cache
-    _cache = None
-
-
 def update_profile(patch: dict) -> dict:
     """Merge new keys into the profile and persist.
 
@@ -88,43 +82,6 @@ def update_profile(patch: dict) -> dict:
     global _cache
     _cache = profile
     return profile
-
-
-def add_interest(interest: str) -> bool:
-    """Record one learned interest. Returns True if it was new."""
-    name = " ".join(str(interest).split()).strip(" .,-—")
-    if len(name) < 3 or len(name) > 60:
-        return False
-    current = [str(i) for i in load_profile().get("interests", []) or []]
-    if name.lower() in {i.lower() for i in current}:
-        return False
-    update_profile({"interests": [name]})
-    return True
-
-
-def about_summary(max_chars: int = 1200) -> str:
-    """Short human-readable summary of what Jarvis knows about the user."""
-    p = load_profile()
-
-    def txt(v):
-        return " ".join(str(v).split()) if isinstance(v, (list, dict)) else str(v)
-
-    lines = [f"You are Rami Maalej, a full-stack developer from {p.get('location', 'Sfax, Tunisia')}, "
-             f"{p.get('education', {}).get('degree', 'Computer Science')} graduate ({p.get('education', {}).get('school', 'ISIMS Sfax')}, {p.get('education', {}).get('year', '2026')})."]
-    work = p.get("work")
-    if work:
-        lines.append("Experience: " + "; ".join(str(w)[:200] for w in work[:2]))
-    sk = p.get("skills")
-    if sk:
-        lines.append("Skills: " + ", ".join(str(s) for s in sk[:12]))
-    projects = p.get("projects")
-    if projects and isinstance(projects, dict):
-        lines.append("Projects: " + ", ".join(k for k in projects))
-    lines.append(f"Languages: {', '.join(str(l) for l in p.get('languages', []))}. "
-                 f"Contact: {p.get('email', '')} / {p.get('phone', '')}.")
-    lines.append("You are ATLANTIS MARK XL, created by Rami Maalej. You are his ultimate digital assistant.")
-    out = " ".join(lines)
-    return out[:max_chars]
 
 
 def profile_for_prompt(max_chars: int = 1600) -> str:

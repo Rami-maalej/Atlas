@@ -477,12 +477,6 @@ def connect(
             pass
 
 
-def _uid(conn: Any, command: str, *args: Any) -> tuple[str, Any]:
-    """Run an IMAP UID command, normalising status to ``OK``/``NO``."""
-    status, data = conn.uid(command, *args)
-    return (status or "").upper(), data
-
-
 def _parse_flags_and_headers(raw: bytes, flags_blob: str) -> MailMessage:
     """Parse one FETCH response into a :class:`MailMessage` (headers only)."""
     msg = MailMessage(uid="")

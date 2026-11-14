@@ -430,30 +430,3 @@ class RemoteAPIServer:
         self._httpd.shutdown()
         self._httpd.server_close()
 
-
-def make_default_runners(
-    execute_tool: Callable[..., str],
-    ui: Any,
-) -> tuple[TaskRunner, CommandRunner]:
-    """Build runners wired to Jarvis' tool executor.
-
-    Args:
-        execute_tool: ``core.tools.executor.execute_tool``.
-        ui: The UI/player object tools log to.
-
-    Returns:
-        ``(task_runner, command_runner)`` pair for :class:`RemoteAPIServer`.
-    """
-
-    def task_runner(name: str, args: dict[str, Any]) -> str:
-        return execute_tool(ui, name, args, speak=lambda _x: None)
-
-    def command_runner(text: str) -> str:
-        # Route free text through the intent/LLM pipeline when the caller
-        # exposes it; otherwise fall back to a plain tool execution error.
-        process = getattr(ui, "process_remote_text", None)
-        if callable(process):
-            return str(process(text))
-        return "Natural-language commands need pc_bridge running."
-
-    return task_runner, command_runner

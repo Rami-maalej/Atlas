@@ -79,14 +79,6 @@ def get_categories() -> list[str]:
         return sorted({c["category"] for c in _REGISTERED.values()})
 
 
-def unregister(name: str) -> bool:
-    with _lock:
-        if name in _REGISTERED:
-            del _REGISTERED[name]
-            return True
-        return False
-
-
 def find_matches(text: str) -> list[dict[str, Any]]:
     """Find capabilities whose patterns match the given text."""
     matches = []
@@ -114,15 +106,6 @@ def get_manifest() -> dict[str, Any]:
         "categories": get_categories(),
         "capabilities": caps,
     }
-
-
-def save_manifest(path: str | Path | None = None) -> str:
-    """Save the capability manifest to a JSON file."""
-    if path is None:
-        path = memory_path("capabilities.json")
-    data = get_manifest()
-    Path(path).write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-    return str(path)
 
 
 # ── Registry singleton ───────────────────────────────────────────────────

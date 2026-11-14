@@ -26,11 +26,6 @@ def _strip_fences(text: str) -> str:
     return text.strip()
 
 
-def _is_rate_limit(error: Exception) -> bool:
-    msg = str(error).lower()
-    return "429" in msg or "quota" in msg or "resource_exhausted" in msg
-
-
 def _parse_traceback(output: str, project_files: list[str]) -> tuple[str | None, int | None]:
 
     pattern = re.compile(r'File ["\']([^"\']+\.py)["\'],\s+line\s+(\d+)', re.IGNORECASE)

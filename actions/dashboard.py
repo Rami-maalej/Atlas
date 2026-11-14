@@ -165,21 +165,6 @@ def log_usage(app: str) -> None:
     _write(data)
 
 
-def learn_daily_software() -> str:
-    """Manually scan usage history and promote apps that qualify."""
-    data = _read()
-    apps = data.setdefault("apps", [])
-    usage = data.get("usage", {})
-    promoted = [a for a, days in usage.items()
-                if a not in apps and len(days) >= PROMOTE_DAYS]
-    for app in promoted:
-        apps.append(app)
-    if promoted:
-        _write(data)
-        return "Learned your daily software: " + ", ".join(promoted) + "."
-    return "No new daily software found yet — keep opening your apps and I'll learn."
-
-
 def _clean(app: str) -> str:
     import re
     return re.sub(r"\s+", " ", app.strip().lower()).strip()

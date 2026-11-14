@@ -17,20 +17,6 @@ CACHE_PATH = memory_path("forensics_cache.json")
 _lock = threading.Lock()
 
 
-def _load_cache() -> dict:
-    if not CACHE_PATH.exists():
-        return {}
-    try:
-        return json.loads(CACHE_PATH.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-
-
-def _save_cache(data: dict):
-    CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    CACHE_PATH.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-
-
 def _run_cmd(cmd: list[str], timeout: int = 30) -> str:
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)

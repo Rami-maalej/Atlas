@@ -89,11 +89,6 @@ def _take_screenshot() -> Path | None:
         return None
 
 
-def _image_to_base64(path: Path) -> str:
-    import base64
-    return base64.b64encode(path.read_bytes()).decode("utf-8")
-
-
 def _detect_intent(description: str, file_path: str, code: str) -> str:
     desc = (description or "").lower()
 
