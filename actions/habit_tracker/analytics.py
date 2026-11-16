@@ -1,14 +1,15 @@
 from datetime import datetime, timedelta
-from typing import List
+
 from .habit import Habit
 
-def get_by_periodicity(habits: List[Habit], periodicity: str) -> List[Habit]:
+
+def get_by_periodicity(habits: list[Habit], periodicity: str) -> list[Habit]:
     return [h for h in habits if h.periodicity == periodicity]
 
-def get_by_category(habits: List[Habit], category: str) -> List[Habit]:
+def get_by_category(habits: list[Habit], category: str) -> list[Habit]:
     return [h for h in habits if h.category == category]
 
-def calculate_longest_streak_all(habits: List[Habit]) -> int:
+def calculate_longest_streak_all(habits: list[Habit]) -> int:
     return max((calculate_longest_streak_habit(h) for h in habits), default=0)
 
 def calculate_longest_streak_habit(habit: Habit) -> int:
@@ -44,7 +45,7 @@ def calculate_current_streak(habit: Habit) -> int:
                 break
     return streak
 
-def get_most_struggled_habit(habits: List[Habit]) -> Habit | None:
+def get_most_struggled_habit(habits: list[Habit]) -> Habit | None:
     def missed(h):
         dates = sorted([datetime.fromisoformat(d).date() for d in h.completion_dates])
         m = 0
@@ -67,10 +68,10 @@ def get_completion_rate(habit: Habit) -> float:
         total = (today.isocalendar()[1] - created.isocalendar()[1]) + 1
     return len(habit.completion_dates) / total if total > 0 else 0.0
 
-def generate_weekly_report(habits: List[Habit]) -> dict:
+def generate_weekly_report(habits: list[Habit]) -> dict:
     week = datetime.now().date().isocalendar()[1]
     return {h.name: any(datetime.fromisoformat(d).isocalendar()[1] == week for d in h.completion_dates) for h in habits}
 
-def generate_monthly_report(habits: List[Habit]) -> dict:
+def generate_monthly_report(habits: list[Habit]) -> dict:
     month = datetime.now().date().month
     return {h.name: any(datetime.fromisoformat(d).month == month for d in h.completion_dates) for h in habits}

@@ -1,7 +1,6 @@
+import re
 import subprocess
 import sys
-import json
-import re
 import time
 from pathlib import Path
 
@@ -15,7 +14,8 @@ BASE_DIR           = get_base_dir()
 DESKTOP            = Path.home() / "Desktop"
 MAX_BUILD_ATTEMPTS = 3
 
-from core.llm_client import call_llm_text_smart as _llm, resolve_llm_url
+from core.llm_client import call_llm_text_smart as _llm
+from core.llm_client import resolve_llm_url
 
 
 def _clean_code(text: str) -> str:
@@ -382,8 +382,11 @@ def _screen_debug_action(description, file_path, player, speak=None) -> str:
             print(f"[Code] ⚠️ Could not read file: {err}")
 
     try:
-        import base64, json as _json, requests as _req
+        import base64
+        import json as _json
         from pathlib import Path as _Path
+
+        import requests as _req
 
         cfg          = {}
         cfg_file     = _Path(__file__).resolve().parent.parent / "config" / "api_keys.json"

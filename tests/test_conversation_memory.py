@@ -71,8 +71,7 @@ def test_conversation_trim_preserves_complete_tool_turns():
 
 
 def test_fast_general_uses_shared_style_and_recent_history(monkeypatch):
-    from core import jarvis_general
-    from core import llm_client
+    from core import jarvis_general, llm_client
 
     captured = {}
 

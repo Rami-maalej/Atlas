@@ -1,24 +1,20 @@
 #computer_control.py
-import random
-import string
 import io
 import json
+import random
 import re
-import shlex
+import string
 import subprocess
 import sys
-import threading
 import time
-import traceback
 from pathlib import Path
 
-from core.safe_math import safe_math
-from core.llm_client import resolve_llm_url
-
+from actions._lazy_pya import LazyPya
+from actions._lazy_pya import pya_saved as _pya_saved
 from actions.file_controller import open_folder as _open_folder
-
-from actions._lazy_pya import LazyPya, pya_saved as _pya_saved
+from core.llm_client import resolve_llm_url
 from core.paths import memory_path
+from core.safe_math import safe_math
 
 pyautogui = LazyPya()
 
@@ -485,8 +481,9 @@ def _focus_window(title: str) -> str:
 def _screen_find(description: str) -> tuple[int, int] | None:
     try:
         import base64
-        import requests as _req
         import json as _json
+
+        import requests as _req
 
         cfg_path = Path(__file__).resolve().parent.parent / "config" / "api_keys.json"
         try:

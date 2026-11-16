@@ -1,5 +1,4 @@
 import logging
-import os
 import re
 import tempfile
 from datetime import datetime, timedelta
@@ -206,6 +205,29 @@ def parse_datetime(text: str) -> str:
             year = now.year
             return f"{year}-{month:02d}-{day:02d}"
 
+    # Try "month day" format: "august 21", "mars 3", "august 21st"
+    m = re.search(r"\b(janvier|février|fevrier|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|décembre|decembre|january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})(?:st|nd|rd|th)?\b", text_lower)
+    if m:
+        month_name = m.group(1)
+        day = int(m.group(2))
+        month = _MONTHS_FR.get(month_name) or _MONTHS_EN.get(month_name)
+        if month:
+            year = now.year
+            return f"{year}-{month:02d}-{day:02d}"
+
+    # Weekday names: "friday", "vendredi", "next monday" → next occurrence
+    m = re.search(r"\b(next\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b", text_lower)
+    if m:
+        day_name = m.group(2)
+        wd = _DAYS_EN.get(day_name)
+        if wd is None:
+            wd = _DAYS_FR.get(day_name)
+        if wd is not None:
+            days_ahead = (wd - now.weekday()) % 7
+            if m.group(1) and days_ahead == 0:
+                days_ahead = 7  # "next friday" on a friday → a week out
+            return (now + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
+
     # Try "day/month" numeric: "21/08", "21-08"
     m = re.search(r"(\d{1,2})[/-](\d{1,2})", text_lower)
     if m:
@@ -219,6 +241,13 @@ def parse_datetime(text: str) -> str:
 def parse_task_text(text: str) -> dict:
     """Extract task title, due date, and priority from natural language."""
     result = {"title": text, "due": "", "priority": "normal"}
+
+    # Strip the routing command prefix ("add task buy milk" → "buy milk")
+    result["title"] = re.sub(
+        r"^(?:add|create|new|make|schedule|remind\s+me\s+to|remind\s+me)\s+"
+        r"(?:a\s+|an\s+|the\s+)?(?:task|todo|to-do|item|reminder|thing)\s*(?::|to)?\s*",
+        "", result["title"], flags=re.IGNORECASE,
+    ).strip() or result["title"]
 
     # Extract priority
     prio_map = {"high": "high", "critical": "critical", "urgent": "critical", "low": "low", "low priority": "low"}

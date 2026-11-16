@@ -1,5 +1,5 @@
-import platform
 import logging
+import platform
 from typing import Any
 
 logger = logging.getLogger("screen_reader")
@@ -98,7 +98,7 @@ def _linux_active_window() -> dict:
 
 def _windows_elements() -> list[dict]:
     try:
-        from comtypes import CoInitializeEx, COINIT_MULTITHREADED, CoUninitialize
+        from comtypes import COINIT_MULTITHREADED, CoInitializeEx, CoUninitialize
         from UIAutomation import IUIAutomation
     except ImportError:
         logger.info("UIAutomation not available — pip install UIAutomation")

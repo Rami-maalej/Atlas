@@ -21,7 +21,7 @@ def discover_services(timeout: int = 3) -> list[dict[str, Any]]:
 
 def _discover_zeroconf(timeout: int) -> list[dict[str, Any]]:
     try:
-        from zeroconf import Zeroconf, ServiceBrowser, ServiceStateChange
+        from zeroconf import ServiceBrowser, ServiceStateChange, Zeroconf
     except ImportError:
         logger.info("python-zeroconf not installed — pip install zeroconf")
         return []

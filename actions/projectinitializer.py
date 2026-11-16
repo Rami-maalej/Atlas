@@ -9,10 +9,10 @@ Supports: Python, Node, React, Vue, Next.js, Nuxt, Angular, Svelte,
 """
 
 import os
+import shlex
 import shutil
 import subprocess
 
-import shlex
 
 def ok(msg):    print(f"✅ {msg}")
 def warn(msg):  print(f"⚠️  {msg}")

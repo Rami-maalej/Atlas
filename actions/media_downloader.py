@@ -1,7 +1,7 @@
-import os
-import requests
 import logging
 from pathlib import Path
+
+import requests
 
 logger = logging.getLogger(__name__)
 

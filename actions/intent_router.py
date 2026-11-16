@@ -17,7 +17,6 @@ Huge speed improvement — simple commands skip LLM entirely.
 """
 
 from __future__ import annotations
-from actions.mega_router import mega_route
 
 import json
 import logging
@@ -27,8 +26,16 @@ from pathlib import Path
 from typing import Any
 
 from actions.capability_registry import find_matches
+from actions.mega_router import mega_route
 
 logger = logging.getLogger("intent_router")
+
+
+def _last_group(match: re.Match | None) -> str | None:
+    """Last capture group of a match, tolerating non-participating groups."""
+    if not match or not match.re.groups:
+        return None
+    return match.group(match.re.groups)
 
 # ── Intent definitions ───────────────────────────────────────────────────
 # Each intent has: name, patterns (regex list), subsystem, and handler name
@@ -191,6 +198,7 @@ _INTENTS: list[dict[str, Any]] = [
             r'generate\s+a\s+qr\s*code\s+for\s+.+',
             r'fais\s+un\s+qr\s*code\s+pour\s+.+',
             r'scan\s+qr\s*code',
+            r'read\s+(this\s+|the\s+|a\s+)?qr\s*code\s+(from|in|on)\s+.+',
         ],
         "handler": "qr_tools",
         "requires_ai": False,
@@ -346,8 +354,10 @@ _INTENTS: list[dict[str, Any]] = [
         "name": "install_tool",
         "subsystem": "tools",
         "patterns": [
-            r'install\s+.+',
-            r'installe\s+.+',
+            # "install opencode" must stay with opencode_install (full-match
+            # tie → first-listed wins), so exclude it here.
+            r'install\s+(?!opencode\b).+',
+            r'installe\s+(?!opencode\b).+',
         ],
         "handler": "install_tool",
         "requires_ai": False,
@@ -744,7 +754,28 @@ _INTENTS: list[dict[str, Any]] = [
         "requires_ai": False,
     },
 
-    # ── Gmail / Email ─────────────────────────────────────────────────
+    # ── Email Reader (IMAP — direct Gmail inbox) ──────────────────────
+    # Must precede gmail_get_unread: both patterns fully match
+    # "check my email", and the first-listed intent wins the score tie.
+    # gmail_get_unread still catches explicitly "unread" queries.
+    {
+        "name": "read_emails",
+        "subsystem": "email",
+        "patterns": [
+            r"^(read|check|show|get|fetch|list)\s+(my\s+)?(emails|email|inbox|messages|mails|mail)",
+            r"^(what'?s?\s+in\s+my\s+inbox)",
+            r"^(latest|recent|new)\s+(emails|email|messages|mails|mail)",
+            r"^(do\s+I\s+have\s+(any\s+)?(new\s+)?(emails|email|mail|mails|messages))",
+            r"^(what\s+(are\s+)?my\s+(latest|recent|new)\s+(emails|mails|email|messages))",
+            r"^what\s+(are\s+)?my\s+(latest\s+)?(emails|mails|email|messages)",
+            r"^my\s+(latest|recent|new)\s+(emails|mails|email|messages)",
+            r"^show\s+(my\s+)?(latest|recent)?\s*(emails|email|mails|mail|messages)",
+        ],
+        "handler": "read_emails",
+        "params": {"hours": 24, "limit": 10},
+        "requires_ai": False,  # routes directly with defaults
+    },
+
     {
         "name": "gmail_get_unread",
         "subsystem": "gmail",
@@ -768,25 +799,6 @@ _INTENTS: list[dict[str, Any]] = [
         "handler": "gmail_search",
         "params": {},
         "requires_ai": False,
-    },
-
-    # ── Email Reader (IMAP — direct Gmail inbox) ──────────────────────
-    {
-        "name": "read_emails",
-        "subsystem": "email",
-        "patterns": [
-            r"^(read|check|show|get|fetch|list)\s+(my\s+)?(emails|email|inbox|messages|mails|mail)",
-            r"^(what'?s?\s+in\s+my\s+inbox)",
-            r"^(latest|recent|new)\s+(emails|email|messages|mails|mail)",
-            r"^(do\s+I\s+have\s+(any\s+)?(new\s+)?(emails|email|mail|mails|messages))",
-            r"^(what\s+(are\s+)?my\s+(latest|recent|new)\s+(emails|mails|email|messages))",
-            r"^what\s+(are\s+)?my\s+(latest\s+)?(emails|mails|email|messages)",
-            r"^my\s+(latest|recent|new)\s+(emails|mails|email|messages)",
-            r"^show\s+(my\s+)?(latest|recent)?\s*(emails|email|mails|mail|messages)",
-        ],
-        "handler": "read_emails",
-        "params": {"hours": 24, "limit": 10},
-        "requires_ai": False,  # routes directly with defaults
     },
 
     {
@@ -902,7 +914,7 @@ _INTENTS: list[dict[str, Any]] = [
         "name": "web_search",
         "subsystem": "browser",
         "patterns": [
-            r"^(search|google|look\s+up|find\s+(out|on\s+the\s+web)|who\s+is|who\s+was|who\s+are|who\s+were)",
+            r"^(search|google|look\s+up|find\s+(out|on\s+the\s+web)|who\s+is|who\s+was|who\s+are|who\s+were)(?!\s+(my\s+|mes\s+)?notes?\b)",
             r"^(what\s+is|what\s+was|what\s+are|what\s+were)\s+(?!my\s|mes\s|ma\s|mon\s)",
             r"^(when|where|why|how)\s+(is|are|was|were|did|do|does|can|could|would|will)",
             r"^(price|bitcoin)",
@@ -1115,6 +1127,7 @@ _INTENTS: list[dict[str, Any]] = [
         "name": "convert_units",
         "subsystem": "system",
         "patterns": [
+            r"^\s*convert\s+\d+\s*(degrees?\s*)?(km|mi|miles?|kilometers?|kg|lbs?|pounds?|mph|kmh|kph|celsius|fahrenheit|centigrade|kelvin|gal|liters?|inch(?:es)?|feet|foot|cm|mm|g|oz|ounce|f|c)\s+(?:to|in|into|as)\s+\w+",
             r"\d+\s*(km|mi|miles|kilometers|kg|lb|lbs|pounds|mph|kmh|celsius|fahrenheit|f|c|gal|l|liter|inch|feet|cm|mm)\s+(to|in|as)\s+",
             r"(convert|change)\s+.*(km|mi|miles|kg|lb|lbs|fahrenheit|celsius|inch|feet)\s+(to|into|in)\s+",
             r"(how\s+many|how\s+much)\s+(is|are)\s+.*(km|mi|kg|lb|f|c|inch|feet|gal|l)\s+",
@@ -1220,6 +1233,24 @@ _INTENTS: list[dict[str, Any]] = [
         ],
         "handler": "goals",
         "params": {"action": "summary"},
+        "requires_ai": False,
+    },
+    # ── Todo Display (graphical table) ───────────────────────────────
+    # Must precede "tasks": both fully match "show my tasks" and the
+    # first-listed intent wins the score tie.  Task CRUD still routes
+    # through "tasks" / "task_add".
+    {
+        "name": "todo_display",
+        "subsystem": "tasks",
+        "patterns": [
+            r"^(show|open|display|view|get)\s+(my\s+)?(todo|tasks?|list|to-do)",
+            r"^(todo|to-do|tasks?)\s+(list|panel|view|table)",
+            r"^(what'?s?\s+on|what\s+do\s+I\s+have)\s+(my\s+)?(todo|list)",
+            r"^list\s+(all\s+)?(my\s+)?(tasks?|todos?)",
+            r"^(what|show)\s+(?:are\s+)?(?:my\s+)?(?:tasks?|todos?|to-do)",
+        ],
+        "handler": "todo_display",
+        "params": {},
         "requires_ai": False,
     },
     {
@@ -1823,21 +1854,6 @@ _INTENTS: list[dict[str, Any]] = [
         "params": {},
         "requires_ai": True,
     },
-    # ── Todo Display (graphical table) ───────────────────────────────
-    {
-        "name": "todo_display",
-        "subsystem": "tasks",
-        "patterns": [
-            r"^(show|open|display|view|get)\s+(my\s+)?(todo|tasks?|list|to-do)",
-            r"^(todo|to-do|tasks?)\s+(list|panel|view|table)",
-            r"^(what'?s?\s+on|what\s+do\s+I\s+have)\s+(my\s+)?(todo|list)",
-            r"^list\s+(all\s+)?(my\s+)?(tasks?|todos?)",
-            r"^(what|show)\s+(?:are\s+)?(?:my\s+)?(?:tasks?|todos?|to-do)",
-        ],
-        "handler": "todo_display",
-        "params": {},
-        "requires_ai": False,
-    },
 ]
 
 
@@ -1845,6 +1861,25 @@ _INTENTS: list[dict[str, Any]] = [
 # introduces itself as "Atlantis", and older prompts still say "Jarvis" —
 # all of them must be stripped before routing so "ultron shutdown" and
 # "jarvis shutdown" behave identically.
+def _load_extra_intents() -> list[dict[str, Any]]:
+    """Load optional intents from actions/extra_intents.json.
+
+    These are appended AFTER the hardcoded intents, so a precise hardcoded
+    pattern always wins a score tie against an extra intent.
+    """
+    path = Path(__file__).resolve().parent / "extra_intents.json"
+    try:
+        with open(path, encoding="utf-8") as f:
+            extra = json.load(f)
+        if isinstance(extra, list):
+            return [e for e in extra if isinstance(e, dict) and e.get("name")]
+    except Exception as e:
+        logger.debug("extra_intents.json not loaded: %s", e)
+    return []
+
+
+_INTENTS += _load_extra_intents()
+
 _WAKE_WORDS = ("ultron", "atlantis", "jarvis")
 
 _WAKE_WORD_RE = re.compile(
@@ -2101,7 +2136,7 @@ class IntentRouter:
             query = re.sub(r"^(?:open|play|search|find)\s+(?:a|an|the)?\s*", "", text, flags=re.IGNORECASE)
             query = re.sub(r"\s+(?:on|in|from|at)\s+(?:youtube|yt)\s*$", "", query, flags=re.IGNORECASE)
             params["action"] = "open_search"
-            params["query"] = query.strip() or "YouTube"
+            params["query"] = query.strip().lower() or "YouTube"
 
         elif intent["name"] == "generate_image":
             prompt = text[match.end():].strip().rstrip("!?., ")
@@ -2345,13 +2380,13 @@ class IntentRouter:
                 params["mode"] = "coin"
 
         elif intent["name"] == "system_info":
-            if re.search(r"(os|operating\s+system)", text):
+            if re.search(r"\b(os|operating\s+system)\b", text):
                 params["query"] = "os"
-            elif re.search(r"(cpu|processor|core)", text):
+            elif re.search(r"\b(cpu|processor|core)\b", text):
                 params["query"] = "cpu"
-            elif re.search(r"(ram|memory|gb)", text):
+            elif re.search(r"\b(ram|memory|gb)\b", text):
                 params["query"] = "ram"
-            elif re.search(r"(hostname|name)", text):
+            elif re.search(r"\b(hostname|computer\s+name|device\s+name)\b", text):
                 params["query"] = "hostname"
             else:
                 params["query"] = "all"
@@ -2566,7 +2601,7 @@ class IntentRouter:
             low = text.lower()
             if "kill" in low or "stop" in low or "tuer" in low:
                 params["action"] = "kill"
-                if match: params["name"] = match.group(len(match.groups())).strip()
+                if match: params["name"] = (_last_group(match) or "").strip()
             else:
                 params["action"] = "list"
                 params["sort"] = "mem" if "mem" in low else "cpu"
@@ -2587,41 +2622,41 @@ class IntentRouter:
                     for a in ["grayscale", "flip", "mirror"]:
                         if a in low: params["action"] = a
         elif intent["name"] == "wiki_tools":
-            if match: params["query"] = match.group(len(match.groups())).strip()
+            if match: params["query"] = (_last_group(match) or "").strip()
         elif intent["name"] == "system_health":
             pass
         elif intent["name"] == "news_pro":
-            if match: params["topic"] = match.group(len(match.groups())).strip()
+            if match: params["topic"] = (_last_group(match) or "").strip()
         elif intent["name"] == "devices_scan":
             pass
         elif intent["name"] == "qr_tools":
-            if match: params["text"] = match.group(len(match.groups())).strip()
+            if match: params["text"] = (_last_group(match) or "").strip()
         elif intent["name"] == "clipboard_mgr":
             pass
         elif intent["name"] == "math_solver":
-            if match: params["expression"] = match.group(len(match.groups())).strip()
+            if match: params["expression"] = (_last_group(match) or "").strip()
         elif intent["name"] == "hash_tools":
-            if match: params["text"] = match.group(len(match.groups())).strip()
+            if match: params["text"] = (_last_group(match) or "").strip()
         elif intent["name"] == "random_tools":
             pass
         elif intent["name"] == "notes_tools":
-            if match: params["text"] = match.group(len(match.groups())).strip()
+            if match: params["text"] = (_last_group(match) or "").strip()
         elif intent["name"] == "system_info_tools":
             pass
         elif intent["name"] == "screen_ocr":
-            if match: params["text"] = match.group(len(match.groups())).strip()
+            if match: params["text"] = (_last_group(match) or "").strip()
         elif intent["name"] == "check_crypto":
-            if match: params["crypto"] = match.group(len(match.groups())).strip()
+            if match: params["crypto"] = (_last_group(match) or "").strip()
         elif intent["name"] == "check_time":
-            if match: params["city"] = match.group(len(match.groups())).strip()
+            if match: params["city"] = (_last_group(match) or "").strip()
         elif intent["name"] == "create_document":
             if match and len(match.groups()) >= 5:
                 params["format"] = match.group(3).strip()
                 params["title"] = match.group(5).strip()
         elif intent["name"] == "read_pdf":
-            if match: params["path"] = match.group(len(match.groups())).strip()
+            if match: params["path"] = (_last_group(match) or "").strip()
         elif intent["name"] == "install_tool":
-            if match: params["tool"] = match.group(len(match.groups())).strip()
+            if match: params["tool"] = (_last_group(match) or "").strip()
         elif intent["name"] == "use_tool":
             if match and len(match.groups()) >= 2:
                 params["tool"] = match.group(2).strip()

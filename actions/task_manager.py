@@ -8,19 +8,34 @@ from core.paths import memory_path
 TASKS_PATH = memory_path("tasks.json")
 _lock = threading.Lock()
 
+# When this file is executed standalone (importlib by file path), the module
+# object is distinct from actions.task_manager — but patches applied to the
+# package module (e.g. tests swapping TASKS_PATH) must still take effect.
+# Delegating the path lookup to the canonical package module guarantees that.
+def _get_tasks_path() -> Path:
+    try:
+        if __name__ != "actions.task_manager":
+            from actions import task_manager as _tm
+            return _tm.TASKS_PATH
+    except Exception:
+        pass
+    return TASKS_PATH
+
 # ── Tasks ─────────────────────────────────────────────────────────────
 
 def _load() -> dict:
-    if not TASKS_PATH.exists():
+    path = _get_tasks_path()
+    if not path.exists():
         return {"tasks": [], "transactions": []}
     try:
-        return json.loads(TASKS_PATH.read_text(encoding="utf-8"))
+        return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return {"tasks": [], "transactions": []}
 
 def _save(data: dict):
-    TASKS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    TASKS_PATH.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    path = _get_tasks_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def add_task(title: str, priority: str = "normal", due: str = "") -> str:
@@ -52,9 +67,9 @@ def list_tasks(status: str = "") -> str:
     lines = [f"Tasks ({len(tasks)}):"]
     for t in tasks:
         mark = "✓" if t.get("done") else "○"
-        prio = f" [{t.get('priority', 'normal').upper()}]" if t.get("priority") and t["priority"] != "normal" else ""
+        prio = f" [{t.get('priority', 'normal')}]" if t.get("priority") and t["priority"] != "normal" else ""
         due = f" due {t['due']}" if t.get("due") else ""
-        lines.append(f"  {mark} {t['title']}{prio}{due}")
+        lines.append(f"  {mark} [{t['id']}] {t['title']}{prio}{due}")
     return "\n".join(lines)
 
 
@@ -149,7 +164,7 @@ def budget_summary(period: str = "all", category: str = "") -> str:
         txs = [t for t in txs if t.get("category", "").lower() == category.lower()]
 
     if not txs:
-        return f"No transactions yet for the selected period."
+        return "No transactions yet for the selected period."
 
     income = sum(t["amount"] for t in txs if t["type"] == "income")
     expenses = sum(t["amount"] for t in txs if t["type"] == "expense")

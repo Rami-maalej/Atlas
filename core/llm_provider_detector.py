@@ -14,8 +14,9 @@ import json
 import logging
 import sys
 import threading
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import requests
 

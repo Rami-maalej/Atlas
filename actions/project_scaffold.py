@@ -3,11 +3,11 @@ import logging
 import os
 import re
 import subprocess
-import sys
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from core.lifecycle import mark_child_env
 
@@ -45,6 +45,14 @@ def _project_slug(name: str) -> str:
 
 
 def _open_editor(project_dir: Path) -> bool:
+    # Never pop a GUI editor from automated/offscreen runs — tests call
+    # start_project() and would open VS Code on the user's desktop.
+    if (
+        os.environ.get("QT_QPA_PLATFORM") == "offscreen"
+        or os.environ.get("ATLANTIS_HEADLESS") == "1"
+    ):
+        logger.info("Headless run — skipping editor launch for %s", project_dir)
+        return False
     candidates = ["code", "vim", "nano"]
     for cmd in candidates:
         try:

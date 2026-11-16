@@ -1,6 +1,7 @@
-import psutil
-import platform
 import logging
+import platform
+
+import psutil
 
 logger = logging.getLogger(__name__)
 

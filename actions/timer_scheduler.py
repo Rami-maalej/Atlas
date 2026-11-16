@@ -4,6 +4,7 @@ import threading
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
+
 from core.paths import memory_path
 
 logger = logging.getLogger("timer_scheduler")
@@ -154,6 +155,7 @@ def list_scheduled() -> list[dict]:
 
 
 def remove_scheduled(task_id: str) -> bool:
+    global _scheduled
     with _lock:
         before = len(_scheduled)
         _scheduled = [s for s in _scheduled if s["id"] != task_id]
@@ -240,6 +242,7 @@ def handle(parameters: dict = None, **kwargs) -> str:
     elif mode == "cancel":
         task_id = params.get("task_id", "")
         if task_id.startswith("t"):
+            global _timers
             with _lock:
                 before = len(_timers)
                 _timers = [t for t in _timers if t["id"] != task_id]

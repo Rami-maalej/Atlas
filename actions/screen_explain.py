@@ -2,10 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-import subprocess
 from io import BytesIO
-from pathlib import Path
-from typing import Any
 
 try:  # Optional deps — without them we still explain the screen from the
     # accessibility tree + active window instead of failing outright.
@@ -81,7 +78,7 @@ def _analyze_image(img_bytes: bytes) -> dict:
         criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
         _, labels, centers = cv2.kmeans(data.astype(np.float32), 3, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
         for i, c in enumerate(centers):
-            hex_c = "#{:02x}{:02x}{:02x}".format(int(c[0]), int(c[1]), int(c[2]))
+            hex_c = f"#{int(c[0]):02x}{int(c[1]):02x}{int(c[2]):02x}"
             count = int(np.sum(labels == i))
             dom_colors[hex_c] = dom_colors.get(hex_c, 0) + count
         break

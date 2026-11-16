@@ -6,7 +6,8 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from config import is_windows, is_mac, is_linux
+from config import is_mac, is_windows
+
 
 def _get_base_dir() -> Path:
     if getattr(sys, "frozen", False):
@@ -126,6 +127,7 @@ def _search_flights_browser(
     cabin:       str,
 ) -> tuple[str, str]:
     import time
+
     from actions.browser_control import browser_control
 
     url = _build_google_flights_url(

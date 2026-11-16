@@ -16,27 +16,28 @@ Supported types:
   pptx    → summarize, extract_text, to_pdf
 """
 
-import os
-import re
 import json
+import re
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from datetime import datetime
 
 from core.llm_client import call_llm_text as _llm_text
+
+
+class _R:
+    """Result shim exposing `.text` like a Gemini response."""
+
+    def __init__(self, text: str = "") -> None:
+        self.text = text
 
 
 def _gemini_client():
     # Compatibility shim — returns an object with .generate_content()
     class _Shim:
         def generate_content(self, prompt: str) -> "_R":
-            class _R:
-                pass
-            r = _R()
-            r.text = _llm_text(prompt)
-            return r
+            return _R(_llm_text(prompt))
     return _Shim()
 
 
@@ -629,7 +630,7 @@ def _process_video(path: Path, action: str, params: dict, speak=None) -> str:
         end   = params.get("end",   "")
         if not _ffmpeg_available():
             return "ffmpeg not found."
-        out = _output_path(path, f"trim", path.suffix)
+        out = _output_path(path, "trim", path.suffix)
         try:
             cmd = ["ffmpeg", "-i", str(path), "-ss", str(start)]
             if end:
@@ -713,7 +714,8 @@ def _process_archive(path: Path, action: str, params: dict, speak=None) -> str:
 
     if action == "list":
         try:
-            import zipfile, tarfile
+            import tarfile
+            import zipfile
             ext = path.suffix.lower()
             if ext == ".zip":
                 with zipfile.ZipFile(path) as z:

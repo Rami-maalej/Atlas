@@ -10,9 +10,13 @@ import sys
 from pathlib import Path
 
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QFont, QKeySequence, QShortcut
+from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
-    QApplication, QHBoxLayout, QLabel, QLineEdit, QVBoxLayout, QWidget,
+    QApplication,
+    QLabel,
+    QLineEdit,
+    QVBoxLayout,
+    QWidget,
 )
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))

@@ -95,7 +95,7 @@ def test_hash_tools():
     assert "cannot find" in r.lower() or "Could not" in r
 
 def test_random_tools():
-    from actions.random_tools import dice_roll, coin_flip, random_pick
+    from actions.random_tools import coin_flip, dice_roll, random_pick
     assert dice_roll({"dice": "d6"})  # no crash
     assert coin_flip() in ("🪙 Coin flip: HEADS", "🪙 Coin flip: TAILS") or "HEADS" in coin_flip() or "TAILS" in coin_flip()
     pick = random_pick({"options": "x y z"})
@@ -111,8 +111,9 @@ def test_notes_persistence(tmp_path, monkeypatch):
     assert "No note found" in notes_tools.quick_note_find({"query": "nonexistent-xyz"})
 
 def test_qr_generate_and_scan(tmp_path):
-    from actions.qr_tools import qr_generate, qr_scan
     import re as _re
+
+    from actions.qr_tools import qr_generate, qr_scan
     r = qr_generate({"text": "hello-test"})
     assert "QR code created" in r
     _m = _re.search(r"([\w/.:-]+qr_\S+\.png)", r)
@@ -121,7 +122,7 @@ def test_qr_generate_and_scan(tmp_path):
     assert "hello-test" in r2
 
 def test_dictionary_api():
-    from actions.dictionary_tools import word_definition, word_synonyms
+    from actions.dictionary_tools import word_definition
     assert word_definition({"word": "happy"}).lower().startswith("'happy'")
     assert "found" in word_definition({"word": "zzzzzz-nonexistent"}).lower()
 
@@ -163,7 +164,7 @@ def result_type(r):
 
 
 def test_clipboard_roundtrip():
-    from actions.clipboard_mgr import clipboard_write, clipboard_read
+    from actions.clipboard_mgr import clipboard_read, clipboard_write
     tag = "jarvis-test-tag"
     clipboard_write({"text": tag})
     assert tag in clipboard_read()

@@ -1,5 +1,6 @@
 import logging
 import os
+from datetime import UTC
 from typing import Any
 
 logger = logging.getLogger("finance_tracker")
@@ -15,16 +16,15 @@ class FinanceClient:
     def _get_client(self):
         if self._client is not None:
             return self._client
+        if not self._client_id or not self._secret:
+            raise ValueError(
+                "Plaid credentials required — set PLAID_CLIENT_ID, PLAID_SECRET env vars"
+            )
         try:
             import plaid
             from plaid.api import plaid_api
         except ImportError as exc:
             raise ValueError("Plaid support is missing — install plaid-python") from exc
-
-        if not self._client_id or not self._secret:
-            raise ValueError(
-                "Plaid credentials required — set PLAID_CLIENT_ID, PLAID_SECRET env vars"
-            )
 
         configuration = plaid.Configuration(
             host=plaid.Environment.Sandbox,
@@ -90,8 +90,8 @@ class FinanceClient:
             return []
 
     def get_spending_summary(self, days: int = 30) -> dict[str, Any]:
-        from datetime import datetime, timedelta, timezone
-        end = datetime.now(timezone.utc)
+        from datetime import datetime, timedelta
+        end = datetime.now(UTC)
         start = end - timedelta(days=days)
         txns = self.get_transactions(
             start_date=start.strftime("%Y-%m-%d"),

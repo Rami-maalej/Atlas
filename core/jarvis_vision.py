@@ -9,16 +9,15 @@ never slow down startup.
 """
 from __future__ import annotations
 
-import os
-import sys
 import time
 from pathlib import Path
+
 from core.paths import memory_path
 
 
 def _imports():
-    from PIL import ImageGrab, Image
     import pytesseract
+    from PIL import Image, ImageGrab
     return ImageGrab, Image, pytesseract
 
 

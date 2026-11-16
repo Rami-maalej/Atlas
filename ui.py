@@ -13,21 +13,51 @@ import time
 from pathlib import Path
 
 import psutil
-
 from PyQt6.QtCore import (
-    QEasingCurve, QMimeData, QObject, QPointF, QRectF, QSize, Qt,
-    QTimer, QUrl, pyqtSignal,
+    QPointF,
+    QRectF,
+    Qt,
+    QTimer,
+    QUrl,
+    pyqtSignal,
 )
 from PyQt6.QtGui import (
-    QBrush, QColor, QDragEnterEvent, QDropEvent, QFont, QFontDatabase,
-    QKeySequence, QLinearGradient, QPainter, QPainterPath, QPen, QPixmap,
-    QRadialGradient, QShortcut, QTextOption,
+    QBrush,
+    QColor,
+    QDragEnterEvent,
+    QDropEvent,
+    QFont,
+    QKeySequence,
+    QLinearGradient,
+    QPainter,
+    QPen,
+    QPixmap,
+    QRadialGradient,
+    QShortcut,
+    QTextOption,
 )
 from PyQt6.QtWidgets import (
-    QApplication, QComboBox, QFileDialog, QFrame, QHBoxLayout, QInputDialog, QLabel, QLineEdit,
-    QMainWindow, QMenu, QPushButton, QScrollArea, QSizePolicy, QSplitter, QStackedWidget, QTextEdit,
-    QVBoxLayout, QWidget, QProgressBar, QGridLayout,
+    QApplication,
+    QComboBox,
+    QFileDialog,
+    QFrame,
+    QGridLayout,
+    QHBoxLayout,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QMainWindow,
+    QMenu,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QSplitter,
+    QStackedWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
+
 try:
     from PyQt6.QtWebEngineWidgets import QWebEngineView
     _HAS_WEBENGINE = True
@@ -36,6 +66,7 @@ except ImportError:
 
 from actions.timer_scheduler import list_timers
 from core.llm_client import resolve_llm_url
+
 
 def request_api_key(service_name: str, key_name: str = "") -> str:
     """Show a modal dialog asking for an API key. Saves to config if provided."""
@@ -278,9 +309,18 @@ class _SysMetrics:
                         if not os.path.exists(cur_p):
                             continue
                         try:
-                            cur = float(open(cur_p).read().strip())
-                            mx  = float(open(max_p).read().strip()) if os.path.exists(max_p) else cur
-                            mn  = float(open(min_p).read().strip()) if os.path.exists(min_p) else 0.0
+                            with open(cur_p) as f:
+                                cur = float(f.read().strip())
+                            if os.path.exists(max_p):
+                                with open(max_p) as f:
+                                    mx = float(f.read().strip())
+                            else:
+                                mx = cur
+                            if os.path.exists(min_p):
+                                with open(min_p) as f:
+                                    mn = float(f.read().strip())
+                            else:
+                                mn = 0.0
                             span = mx - mn
                             if span > 0:
                                 return max(0.0, min(100.0, (cur - mn) / span * 100.0))
@@ -410,8 +450,9 @@ class HudCanvas(QWidget):
 
     def _load_face(self, path: str):
         try:
-            from PIL import Image, ImageDraw
             import io
+
+            from PIL import Image, ImageDraw
             img = Image.open(path).convert("RGBA")
             sz  = min(img.size)
             img = img.resize((sz, sz), Image.LANCZOS)
@@ -1901,7 +1942,14 @@ class ConnectionsOverlay(QWidget):
                                   ("Client Secret", "gws_client_secret", True, "OAuth Client Secret")],
                                  ["gws_client_id", "gws_client_secret"])
                 # Add Sign in with Google button
-                from actions.google_workspace import is_authenticated, start_oauth_flow, has_credentials_json, revoke_auth, save_credentials_json, on_auth_change
+                from actions.google_workspace import (
+                    has_credentials_json,
+                    is_authenticated,
+                    on_auth_change,
+                    revoke_auth,
+                    save_credentials_json,
+                    start_oauth_flow,
+                )
                 gws_btn_row = QHBoxLayout()
                 gws_btn_row.setContentsMargins(10, 0, 10, 8)
                 gws_signin_btn = QPushButton("Sign in with Google")
@@ -1931,18 +1979,20 @@ class ConnectionsOverlay(QWidget):
                 gws_revoke_btn.setVisible(False)
                 gws_btn_row.addWidget(gws_revoke_btn)
 
-                def _gws_update_auth_status():
+                def _gws_update_auth_status(signin_btn=gws_signin_btn, revoke_btn=gws_revoke_btn, status_lbl=gws_status):
                     ok = is_authenticated()
-                    gws_signin_btn.setEnabled(has_credentials_json() and not ok)
-                    gws_revoke_btn.setVisible(ok)
-                    gws_status.setText("✓ Authenticated" if ok else "")
-                    gws_status.setStyleSheet(f"color: {C.GREEN if ok else C.TEXT_DIM}; background: transparent;")
+                    signin_btn.setEnabled(has_credentials_json() and not ok)
+                    revoke_btn.setVisible(ok)
+                    status_lbl.setText("✓ Authenticated" if ok else "")
+                    status_lbl.setStyleSheet(f"color: {C.GREEN if ok else C.TEXT_DIM}; background: transparent;")
 
-                self._auth_result_sig.connect(lambda s, m: (_gws_update_auth_status(), gws_status.setText(m) or True))
+                self._auth_result_sig.connect(
+                    lambda s, m, _st=gws_status: (_gws_update_auth_status(), _st.setText(m) or True)
+                )
 
-                def _gws_do_signin():
-                    gws_signin_btn.setEnabled(False)
-                    gws_status.setText("Opening browser…")
+                def _gws_do_signin(signin_btn=gws_signin_btn, status_lbl=gws_status):
+                    signin_btn.setEnabled(False)
+                    status_lbl.setText("Opening browser…")
                     def _on_result(success: bool, msg: str):
                         self._auth_result_sig.emit(success, msg)
                     # Save credentials from inputs before auth
@@ -1957,10 +2007,10 @@ class ConnectionsOverlay(QWidget):
                 on_auth_change(lambda _: _gws_update_auth_status())
 
                 # Watch credential inputs for sign-in button state
-                def _gws_watch_creds(*_):
+                def _gws_watch_creds(*_, signin_btn=gws_signin_btn):
                     cid = self.inputs.get("gws_client_id", QLineEdit()).text().strip()
                     sec = self.inputs.get("gws_client_secret", QLineEdit()).text().strip()
-                    gws_signin_btn.setEnabled(bool(cid and sec) and not is_authenticated())
+                    signin_btn.setEnabled(bool(cid and sec) and not is_authenticated())
                 for k in ("gws_client_id", "gws_client_secret"):
                     if k in self.inputs:
                         self.inputs[k].textChanged.connect(_gws_watch_creds)
@@ -2342,7 +2392,7 @@ class _ProgressBar(QWidget):
             self.update()
 
     def paintEvent(self, event):
-        from PyQt6.QtGui import QPainter, QColor, QLinearGradient
+        from PyQt6.QtGui import QColor, QPainter
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         w = self.width()
@@ -2810,7 +2860,7 @@ class MainWindow(QMainWindow):
 
         # ── Metrics section ──
         metrics_wrap = QWidget()
-        metrics_wrap.setStyleSheet(f"background: transparent;")
+        metrics_wrap.setStyleSheet("background: transparent;")
         m_wrap_lay = QVBoxLayout(metrics_wrap)
         m_wrap_lay.setContentsMargins(10, 12, 10, 8)
         m_wrap_lay.setSpacing(5)
@@ -3027,6 +3077,7 @@ class MainWindow(QMainWindow):
             ("Providers", self._show_providers),
             ("Settings", self._show_config),
             ("Connect.", self._show_connections),
+            ("Mail", self._show_mail),
             ("Island", self._toggle_island),
         ]
         for index, (label, cb) in enumerate(actions, start=1):
@@ -3170,7 +3221,7 @@ class MainWindow(QMainWindow):
             self._center_stack.addWidget(self._tutor_view)  # page 1
         self._tutor_view.load(QUrl(url))
         self._center_stack.setCurrentIndex(1)
-        self._log.append_log(f"SYS: Gemini Tutor opened.")
+        self._log.append_log("SYS: Gemini Tutor opened.")
 
     def close_tutor_panel(self):
         if self._tutor_view is not None and self._center_stack.currentIndex() == 1:
@@ -3278,7 +3329,6 @@ class MainWindow(QMainWindow):
         return bool(val) and val.strip() != ""
 
     def _update_connections(self):
-        import os
         cfg = self._load_config_dict()
         for dot, lbl, svc, key in self._conn_rows:
             is_set = self._key_is_set(key)
@@ -3383,7 +3433,6 @@ class MainWindow(QMainWindow):
         if getattr(self, "_overlay_prov", None) and self._overlay_prov.isVisible():
             return
         import json
-        from pathlib import Path
         current = {}
         try:
             current = json.loads(API_FILE.read_text(encoding="utf-8"))

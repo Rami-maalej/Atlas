@@ -12,18 +12,44 @@ logger = logging.getLogger("browser_use")
 
 
 def _find_config() -> dict:
+    cfg: dict = {}
     try:
         from core.paths import config_path
         p = config_path("api_keys.json")
-    except Exception:
-        p = Path(__file__).resolve().parent.parent / "config" / "api_keys.json"
-    try:
         cfg = json.loads(p.read_text())
     except Exception:
         cfg = {}
+    if "llm_provider" not in cfg:
+        # Sandbox / missing config — fall back to the repository config,
+        # same mechanism used by core.llm_client.
+        repo = Path(__file__).resolve().parent.parent / "config" / "api_keys.json"
+        try:
+            cfg.update(json.loads(repo.read_text()))
+        except Exception:
+            pass
     if cfg.get("llm_url_local") or cfg.get("llm_url_remote"):
         cfg["llm_url"] = resolve_llm_url(cfg)
     return cfg
+
+
+def _make_chat_openai(model: str, api_key: str, base: str):
+    """Return a chat client, preferring browser-use's own ChatOpenAI.
+
+    When browser_use is missing, fall back to the plain ``openai`` SDK so the
+    configured provider can still be reached programmatically.
+    """
+    try:
+        from browser_use.llm.openai.chat import ChatOpenAI
+
+        return ChatOpenAI(model=model, api_key=api_key, base_url=base)
+    except ImportError:
+        pass
+    try:
+        from openai import OpenAI
+
+        return OpenAI(api_key=api_key, base_url=base)
+    except ImportError:
+        return None
 
 
 def _build_llm_client() -> dict | None:
@@ -32,12 +58,6 @@ def _build_llm_client() -> dict | None:
     ``browser_use`` is an optional dependency — when it is missing the caller
     gets a clear message instead of an ImportError traceback.
     """
-    try:
-        import browser_use  # noqa: F401
-    except ImportError as e:
-        logger.warning("browser_use not installed: %s", e)
-        return None
-
     cfg = _find_config()
     provider = cfg.get("llm_provider", "nvidia-nim")
     llm_url = cfg.get("llm_url", "http://localhost:11434")
@@ -47,51 +67,44 @@ def _build_llm_client() -> dict | None:
     base = llm_url.rstrip("/") + "/v1"
 
     if provider == "nvidia_nim":
-        from browser_use.llm.openai.chat import ChatOpenAI
-
         model = llm_model.replace("nvidia/", "").replace("meta/", "")
-        return {
-            "client": ChatOpenAI(
-                model=model,
-                api_key=api_key,
-                base_url=base,
-            ),
-            "model": model,
-        }
+        client = _make_chat_openai(model, api_key, base)
+        if client is None:
+            return None
+        return {"client": client, "model": model}
 
     if provider == "openai":
-        from browser_use.llm.openai.chat import ChatOpenAI
-
-        return {
-            "client": ChatOpenAI(
-                model=llm_model,
-                api_key=api_key,
-                base_url=base,
-            ),
-            "model": llm_model,
-        }
+        client = _make_chat_openai(llm_model, api_key, base)
+        if client is None:
+            return None
+        return {"client": client, "model": llm_model}
 
     if provider in ("ollama", "openrouter"):
-        from browser_use.llm.litellm.chat import ChatLiteLLM
+        try:
+            from browser_use.llm.litellm.chat import ChatLiteLLM
+        except ImportError:
+            ChatLiteLLM = None
 
-        return {
-            "client": ChatLiteLLM(
-                model=f"openai/{llm_model}",
-                api_base=base,
-                api_key=api_key,
-                num_retries=2,
-            ),
-            "model": llm_model,
-        }
+        if ChatLiteLLM is not None:
+            return {
+                "client": ChatLiteLLM(
+                    model=f"openai/{llm_model}",
+                    api_base=base,
+                    api_key=api_key,
+                    num_retries=2,
+                ),
+                "model": llm_model,
+            }
+        client = _make_chat_openai(llm_model, api_key, base)
+        if client is None:
+            return None
+        return {"client": client, "model": llm_model}
 
-    from browser_use.llm.openai.chat import ChatOpenAI
-
+    client = _make_chat_openai(llm_model, api_key, base)
+    if client is None:
+        return None
     return {
-        "client": ChatOpenAI(
-            model=llm_model,
-            api_key=api_key,
-            base_url=base,
-        ),
+        "client": client,
         "model": llm_model,
     }
 
@@ -153,7 +166,7 @@ def run_browser_use_task(
         logger.info("browser-use done in %.1fs: %.100s", elapsed, text)
         return text
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning("browser-use timed out after %ds", timeout)
         return f"Task timed out after {timeout} seconds."
     except ImportError as e:

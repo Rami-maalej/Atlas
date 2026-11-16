@@ -1,13 +1,14 @@
 #computer_settings.py
 import json
+import platform
 import re
+import subprocess
 import sys
 import time
-import subprocess
-import platform
 from pathlib import Path
 
-from actions._lazy_pya import LazyPya, pya_saved as _pya_saved
+from actions._lazy_pya import LazyPya
+from actions._lazy_pya import pya_saved as _pya_saved
 
 pyautogui = LazyPya()
 
@@ -80,7 +81,8 @@ def volume_set(value: int):
     if _OS == "Windows":
         try:
             import math
-            from ctypes import cast, POINTER
+            from ctypes import POINTER, cast
+
             from comtypes import CLSCTX_ALL
             from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
             devices   = AudioUtilities.GetSpeakers()
@@ -365,7 +367,7 @@ def take_screenshot() -> str:
         return "Screenshot copied to clipboard (Windows snipping tool)"
     elif _OS == "Darwin":
         pyautogui.hotkey("command", "shift", "3")
-        return f"Screenshot saved to Desktop"
+        return "Screenshot saved to Desktop"
     else:
         for cmd in [["scrot", str(dest)], ["gnome-screenshot", "-f", str(dest)],
                     ["import", "-window", "root", str(dest)]]:
@@ -524,7 +526,7 @@ def notify(title: str = "Atlantis", message: str = "", urgency: str = "normal"):
                 interface = dbus.Interface(notifications, "org.freedesktop.Notifications")
                 interface.Notify("Atlantis", 0, "", title, message, [], [], -1)
             except Exception:
-                print(f"[Settings] notify failed: no notify-send or dbus")
+                print("[Settings] notify failed: no notify-send or dbus")
     elif _OS == "Darwin":
         subprocess.run(
             ["osascript", "-e",
@@ -781,7 +783,7 @@ def check_webcam() -> str:
             except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
                 pass
         if in_use:
-            return f"Webcam is in use by:\n" + "\n".join(in_use)
+            return "Webcam is in use by:\n" + "\n".join(in_use)
         return "Webcam is not currently in use by any app."
     except Exception as e:
         return f"Could not check webcam status: {e}"

@@ -18,19 +18,27 @@ from __future__ import annotations
 
 import json
 import logging
-import sys
 import threading
-from pathlib import Path
 
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
-    QComboBox, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea,
-    QVBoxLayout, QWidget, QFrame, QGridLayout,
+    QComboBox,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
 )
 
 from core.llm_provider_detector import (
-    PROVIDERS, get_provider, list_models, is_reachable, DEFAULT_MODELS,
+    DEFAULT_MODELS,
+    PROVIDERS,
+    get_provider,
+    list_models,
 )
 
 logger = logging.getLogger("provider_overlay")

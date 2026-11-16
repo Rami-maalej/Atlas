@@ -1,12 +1,12 @@
 import os
-import urllib.parse
-import shutil
 import platform
+import shutil
 import subprocess
-import zipfile
 import tarfile
-from pathlib import Path
+import urllib.parse
+import zipfile
 from datetime import datetime
+from pathlib import Path
 
 try:
     import send2trash

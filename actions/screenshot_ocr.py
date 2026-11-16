@@ -6,6 +6,10 @@ Intents: screen_find_text ("find 'error' on my screen", "is the word login visib
 import logging
 import platform
 import re
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from PIL import Image  # noqa: E402
 
 logger = logging.getLogger("screen_ocr")
 
@@ -28,8 +32,8 @@ def _grab() -> "Image":
     except Exception:
         pass
     try:
-        from PyQt6.QtWidgets import QApplication  # noqa: E402
         from PyQt6.QtGui import QGuiApplication  # noqa: E402
+        from PyQt6.QtWidgets import QApplication  # noqa: E402
         qapp = QApplication.instance() or QApplication([])
         screen = QGuiApplication.primaryScreen()
         img = screen.grabWindow(0)

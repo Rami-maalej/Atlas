@@ -1,6 +1,7 @@
-from PIL import Image, ImageOps
 import logging
 import os
+
+from PIL import Image, ImageOps
 
 logger = logging.getLogger(__name__)
 

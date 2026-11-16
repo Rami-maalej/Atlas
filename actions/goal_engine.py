@@ -3,8 +3,8 @@ import logging
 import threading
 import time
 from datetime import datetime
-from pathlib import Path
 from typing import Any
+
 from core.paths import memory_path
 
 logger = logging.getLogger("goal_engine")
@@ -49,7 +49,7 @@ def create_goal(title: str, description: str = "", steps: list[str] | None = Non
             "phased": is_auto,
             "progress": 0.0,
             "created": datetime.now().isoformat(),
-            "steps": [{"id": f"step-{i}", "title": s, "done": False} for i, s in enumerate((steps or []))],
+            "steps": [{"id": f"step-{i}", "title": s, "done": False} for i, s in enumerate(steps or [])],
             "current_step": 0,
         }
         goals["goals"].append(goal)

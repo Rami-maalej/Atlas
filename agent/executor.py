@@ -2,20 +2,19 @@
 MARK XL — Agent Executor
 Replaces google.generativeai with local Ollama via core.llm_client.
 """
-import json
-import re
-import sys
-import threading
-import subprocess
-import tempfile
 import os
+import re
+import subprocess
+import sys
+import tempfile
+import threading
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
-from agent.planner       import create_plan, replan
-from agent.error_handler import analyze_error, generate_fix, ErrorDecision
-from core.llm_client     import call_llm_text_smart as call_llm_text
-from core.workflows      import agent_flow, step_task, tool_task
+from agent.error_handler import ErrorDecision, analyze_error, generate_fix
+from agent.planner import create_plan, replan
+from core.llm_client import call_llm_text_smart as call_llm_text
+from core.workflows import agent_flow
 
 
 def get_base_dir() -> Path:

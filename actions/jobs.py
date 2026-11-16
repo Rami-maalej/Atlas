@@ -1,14 +1,15 @@
 import json
 import os
-import urllib.request
 import urllib.parse
+import urllib.request
 
 BASE_URL = "https://data.fantastic.jobs/v1"
 
 def _get_api_key() -> str:
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     try:
-        cfg = json.loads(open(os.path.join(base, "config", "api_keys.json")).read())
+        with open(os.path.join(base, "config", "api_keys.json")) as f:
+            cfg = json.loads(f.read())
         return cfg.get("fantastic_jobs_api_key", "")
     except Exception:
         return ""

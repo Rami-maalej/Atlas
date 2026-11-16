@@ -6,7 +6,6 @@ TTS engine voice at runtime, then confirms back in the chosen language.
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 logger = logging.getLogger("jarvis")
 
@@ -29,7 +28,7 @@ _LANGUAGE_ALIASES: dict[str, str] = {
     "dutch": "nl",
     "polish": "pl", "polonais": "pl",
     "romanian": "ro", "roumain": "ro",
-    "thai": "th", "thaï": "th", "thai": "th",
+    "thai": "th", "thaï": "th",
     "vietnamese": "vi", "vietnamien": "vi",
     "indonesian": "id", "indonesien": "id",
     "persian": "fa", "farsi": "fa",

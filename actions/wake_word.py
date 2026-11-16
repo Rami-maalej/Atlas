@@ -1,12 +1,8 @@
 import logging
-import os
 import platform
 import queue
-import struct
 import threading
-import time
-from pathlib import Path
-from typing import Callable
+from collections.abc import Callable
 
 import numpy as np
 
@@ -75,7 +71,6 @@ class WakeWordDetector:
             self._audio_queue.put(audio_chunk)
 
     def _run(self):
-        import openwakeword
 
         while self._running:
             try:

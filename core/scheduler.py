@@ -1,12 +1,14 @@
 import json
+import re
+import sys
 import threading
 import time
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Callable
-import sys
-import re
+
 from core.paths import memory_path
+
 
 def get_base_dir() -> Path:
     if getattr(sys, "frozen", False):

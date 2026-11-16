@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import imaplib
 import email
-from email.policy import default
+import imaplib
 import json
 import re
 from datetime import datetime, timedelta
+from email.policy import default
 from pathlib import Path
 
 from cryptography.fernet import Fernet

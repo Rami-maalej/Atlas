@@ -17,7 +17,6 @@ import os
 import socket
 import sys
 import threading
-import time
 import traceback
 from datetime import datetime
 from pathlib import Path
@@ -42,34 +41,40 @@ BASE_DIR = Path(__file__).resolve().parent
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-from memory.memory_manager import load_memory, format_memory_for_prompt, update_memory
-from memory.vector_memory import store_memory, store_conversation, get_relevant_context, get_memory_count, search_memory
-from core.llm_client import call_llm_stream, get_llm_settings, ensure_ollama_running, warmup_model
+from actions.browser_control import browser_control
+from actions.code_helper import code_helper
+from actions.computer_control import computer_control
+from actions.computer_settings import computer_settings
+from actions.desktop import desktop_control
+from actions.dev_agent import dev_agent
+from actions.file_controller import file_controller
+from actions.file_processor import file_processor
+from actions.flight_finder import flight_finder
+from actions.game_updater import game_updater
+from actions.get_location import get_location
 
 # Tool imports
 from actions.open_app import open_app
-from actions.weather_report import weather_action
-from actions.send_message import send_message
 from actions.reminder import reminder
-from actions.computer_settings import computer_settings
 from actions.screen_processor import screen_process
-from actions.youtube_video import youtube_video
-from actions.desktop import desktop_control
-from actions.browser_control import browser_control
-from actions.file_controller import file_controller
-from actions.code_helper import code_helper
-from actions.dev_agent import dev_agent
+from actions.send_message import send_message
+from actions.weather_report import weather_action
 from actions.web_search import web_search as web_search_action
-from actions.computer_control import computer_control
-from actions.game_updater import game_updater
-from actions.get_location import get_location
-from actions.file_processor import file_processor
-from actions.flight_finder import flight_finder
-from core.scheduler import get_scheduler
-from core.safe_math import safe_math
+from actions.youtube_video import youtube_video
 from agent.agent_manager import get_agent_manager
-from skills.skill_loader import get_active_skill_context, list_skills, reload_skills
+from core.llm_client import call_llm_stream, ensure_ollama_running, warmup_model
 from core.remote_api import RemoteAPIServer
+from core.safe_math import safe_math
+from core.scheduler import get_scheduler
+from memory.memory_manager import format_memory_for_prompt, load_memory, update_memory
+from memory.vector_memory import (
+    get_memory_count,
+    get_relevant_context,
+    search_memory,
+    store_conversation,
+    store_memory,
+)
+from skills.skill_loader import get_active_skill_context
 
 # ── Tool declarations (same as main.py) ──────────────────────────────────────
 
@@ -687,7 +692,7 @@ class HeadlessJarvis:
                 r = get_location(parameters=args, player=None)
                 return r or "Location retrieved."
             elif name == "agent_task":
-                from agent.task_queue import get_queue, TaskPriority
+                from agent.task_queue import TaskPriority, get_queue
                 priority_map = {
                     "low": TaskPriority.LOW,
                     "normal": TaskPriority.NORMAL,
@@ -727,7 +732,6 @@ class HeadlessJarvis:
             return f"Tool '{name}' failed: {e}"
 
     def _calculate(self, args: dict) -> str:
-        import math as _math
         import re as _re
         expr = (args or {}).get("expression", "").strip()
         if not expr:
@@ -1076,7 +1080,7 @@ class BridgeServer:
         print("  MARK XL — PC Bridge Server")
         print("=" * 56)
         print()
-        print(f"  WebSocket endpoint:")
+        print("  WebSocket endpoint:")
         for ip in ips:
             print(f"    ws://{ip}:{self.port}")
         print()

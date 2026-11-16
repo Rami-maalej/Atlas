@@ -1,7 +1,5 @@
 """Small utilities."""
 from __future__ import annotations
-from typing import Any
-import logging
 
 from core.safe_math import safe_math
 
@@ -55,7 +53,6 @@ def _is_smalltalk(text: str) -> bool:
 
 
 def calculate(parameters: dict = None) -> str:
-    import math as _math
     import re as _re
     expr = (parameters or {}).get("expression", "").strip()
     if not expr:

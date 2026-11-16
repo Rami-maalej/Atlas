@@ -1,9 +1,7 @@
-import json
 import logging
 import os
-import threading
-from pathlib import Path
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger("voice_calls")
 
@@ -99,7 +97,7 @@ class LiveKitClient:
         on_audio_frame: Callable | None = None,
     ) -> dict[str, Any]:
         try:
-            from livekit.rtc import Room, RoomEvent, AudioSource, AudioFrame
+            from livekit.rtc import AudioFrame, AudioSource, Room, RoomEvent
         except ImportError as exc:
             raise ValueError("LiveKit RTC support is missing — install livekit-rtc") from exc
 

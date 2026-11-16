@@ -3,6 +3,7 @@ Tests for all new feature modules — run with:  pytest tests/test_features.py -
 """
 
 import ast
+import re
 import sys
 from pathlib import Path
 
@@ -456,8 +457,12 @@ class TestLatencyOptimizations:
         # LLM provider doesn't serve embeddings at the standard path.
 
     def test_vad_silence_reduced(self):
-        content = (PROJECT / "main.py").read_text()
-        assert "silence_sec:    float = 0.3" in content, "VAD silence should be 0.3"
+        # VAD lives in core/vad_buffer.py since the mic-loop refactor; it
+        # should be reduced to at most 0.3s (currently 0.12s).
+        content = (PROJECT / "core" / "vad_buffer.py").read_text()
+        m = re.search(r"silence_sec:\s*float\s*=\s*(0\.\d+)", content)
+        assert m, "VAD silence_sec not found"
+        assert float(m.group(1)) <= 0.3, "VAD silence should be <= 0.3s"
 
     def test_vector_memory_deduped(self):
         content = (PROJECT / "memory" / "vector_memory.py").read_text()

@@ -5,7 +5,6 @@ Tests for MARK XL JARVIS — run with:  pytest tests/ -v  (from project root)
 import ast
 import json
 import sys
-import types
 from pathlib import Path
 
 import pytest

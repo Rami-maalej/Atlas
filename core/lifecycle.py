@@ -20,7 +20,6 @@ import logging
 import os
 import signal
 import subprocess
-import sys
 import time
 
 logger = logging.getLogger("jarvis.lifecycle")
@@ -162,7 +161,7 @@ def stop_background(ui=None) -> None:
 def flush_memory() -> None:
     """Persist every memory store so the next launch remembers everything."""
     try:
-        from memory.vector_memory import _save_store, _load_store
+        from memory.vector_memory import _load_store, _save_store
         _save_store(_load_store())
     except Exception as e:
         logger.debug("vector memory flush: %s", e)

@@ -4,7 +4,8 @@ import sys
 import time
 from pathlib import Path
 
-from actions._lazy_pya import LazyPya, pya_saved as _pya_saved
+from actions._lazy_pya import LazyPya
+from actions._lazy_pya import pya_saved as _pya_saved
 
 pyautogui = LazyPya()
 

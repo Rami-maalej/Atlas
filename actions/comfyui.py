@@ -34,8 +34,8 @@ _MODEL_ID = "segmind/tiny-sd"
 
 def _diffusers_generate(prompt: str, negative: str = "") -> str | None:
     try:
-        from diffusers import DiffusionPipeline
         import torch
+        from diffusers import DiffusionPipeline
     except ImportError:
         return None
     try:

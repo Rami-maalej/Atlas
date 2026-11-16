@@ -7,8 +7,6 @@ user's already-running browser (CDP) — no browser startup, no session loss.
 """
 from __future__ import annotations
 
-import re
-
 
 def fast_browser(parameters: dict | None = None) -> str:
     """Execute a fast browser command from a plain-text instruction."""

@@ -216,8 +216,8 @@ def clone_repo(repo: str, dest_dir: str | None = None, player=None) -> str:
 
     ``repo`` accepts a full URL (https://…, git@…:…) or ``owner/repo``.
     """
-    import subprocess
     import shutil
+    import subprocess
 
     if not shutil.which("git"):
         return "git is not installed — install git first."

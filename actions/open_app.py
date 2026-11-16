@@ -1,9 +1,9 @@
-import re
-import time
-import subprocess
-import platform
-import shutil
 import os
+import platform
+import re
+import shutil
+import subprocess
+import time
 import urllib.parse
 from pathlib import Path
 
@@ -14,6 +14,11 @@ except ImportError:
     _PSUTIL = False
 
 _SYSTEM = platform.system()
+# Offscreen/headless runs (pytest, CI, servers) must not spawn GUI apps.
+_HEADLESS = (
+    os.environ.get("QT_QPA_PLATFORM") == "offscreen"
+    or os.environ.get("ATLANTIS_HEADLESS") == "1"
+)
 _APP_CACHE: dict[str, str] = {}
 
 def _detect_terminal() -> str:
@@ -102,7 +107,6 @@ _WEB_APPS: dict[str, str] = {
     "youtube":        "https://youtube.com",
     "tradingview":    "https://tradingview.com/chart",
     "trading view":   "https://tradingview.com/chart",
-    "trading view":    "https://tradingview.com/chart",
     "gmail":           "https://mail.google.com",
     "google":          "https://google.com",
     "google maps":     "https://maps.google.com",
@@ -401,6 +405,13 @@ def _launch_macos(app_name: str) -> bool:
 
 def _launch_linux(app_name: str) -> bool:
 
+    # Never launch real GUI apps from automated/offscreen runs (pytest
+    # sets QT_QPA_PLATFORM=offscreen; ATLANTIS_HEADLESS=1 is the manual opt-out).
+    if (
+        _HEADLESS
+    ):
+        return False
+
     # Fast path: resolved .desktop Exec line (cached on first call).
     # Popen is fire-and-forget — waiting after a successful spawn just adds
     # 1 s of dead latency to every "open X".
@@ -565,11 +576,11 @@ def open_app(
             tv_url2, symbol2 = _parse_tradingview_params(rest)
             final_url = tv_url2 or tv_url
             if _open_url(final_url):
-                label = f"TradingView"
+                label = "TradingView"
                 if symbol2:
                     label += f" {symbol2}"
                 return f"Opened {label} in your browser."
-            return f"Could not open TradingView."
+            return "Could not open TradingView."
 
     # Check if this is a Wikipedia request with a topic
     if wikipedia_topic := _extract_wikipedia_topic(raw_name):
@@ -676,7 +687,6 @@ def open_app(
         _VIDEO_KEYWORDS = {"tutorial", "video", "guide", "walkthrough", "how to", "how-to", "lesson", "course", "demo", "match", "game", "stream", "clip", "trailer", "highlights", "episode", "review", "vs", "versus"}
         words_lower = set(app_name.lower().split())
         if words_lower & _VIDEO_KEYWORDS:
-            import urllib.parse
             query = urllib.parse.quote_plus(raw_name)
             youtube_url = f"https://www.youtube.com/results?search_query={query}"
             if _open_url(youtube_url):

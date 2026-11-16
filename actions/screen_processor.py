@@ -9,8 +9,9 @@ import base64
 import io
 import json
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Optional, Callable
+
 from core.llm_client import resolve_llm_url
 
 try:
@@ -157,7 +158,6 @@ def _get_camera_index() -> int:
 def _capture_camera() -> tuple[bytes, str]:
     if not _CV2:
         raise RuntimeError("OpenCV (cv2) is not installed. Run: pip install opencv-python")
-    import numpy as np
     index   = _get_camera_index()
     backend = _cv2_backend()
     cap     = cv2.VideoCapture(index, backend)
@@ -433,7 +433,7 @@ def screen_process(
     response=None,
     player=None,
     session_memory=None,
-    speak:          Optional[Callable[[str], None]] = None,
+    speak:          Callable[[str], None] | None = None,
 ) -> str:
     """
     Capture screen or camera, analyse with Ollama vision model.

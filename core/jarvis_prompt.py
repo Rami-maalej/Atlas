@@ -1,17 +1,14 @@
 """System-prompt loading & building."""
 from __future__ import annotations
-import os
-import json
-from pathlib import Path
-from datetime import datetime
-import re
-import logging
 
-from memory.memory_manager import load_memory, format_memory_for_prompt
-from memory.vector_memory  import get_relevant_context, get_memory_count
-from skills.skill_loader   import get_active_skill_context
-from agent.agent_manager   import get_agent_manager
+from datetime import datetime
+from pathlib import Path
+
+from agent.agent_manager import get_agent_manager
 from core.conversation_style import CONVERSATION_STYLE
+from memory.memory_manager import format_memory_for_prompt, load_memory
+from memory.vector_memory import get_memory_count, get_relevant_context
+from skills.skill_loader import get_active_skill_context
 
 # Paths
 BASE_DIR        = Path(__file__).resolve().parent.parent
@@ -69,7 +66,7 @@ def _build_system_prompt(self, user_text: str = "") -> str:
     # This is the "remembers like a real person" layer.
     _episodic_ctx = ""
     try:
-        from core.jarvis_memory import format_episode_recall, format_human_recall  # noqa: E402
+        from core.jarvis_memory import format_human_recall  # noqa: E402
         # include_facts/vectors=False → those blocks are injected once below
         # (mem_str / vec_context), instead of twice as before.
         _episodic_ctx = format_human_recall(

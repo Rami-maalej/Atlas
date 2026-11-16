@@ -1,15 +1,14 @@
 #desktop.py
 import os
-import sys
-import json
+import platform
 import shutil
 import subprocess
+import sys
 import tempfile
-import platform
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
-from actions._lazy_pya import LazyPya, pya_saved as _pya_saved
+from actions._lazy_pya import LazyPya
 
 pyautogui = LazyPya()
 

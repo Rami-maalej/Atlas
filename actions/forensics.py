@@ -1,7 +1,5 @@
-import json
 import logging
 import os
-import shlex
 import subprocess
 import sys
 import threading
@@ -9,6 +7,7 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
+
 from core.paths import memory_path
 
 logger = logging.getLogger("forensics")
@@ -31,7 +30,6 @@ def file_history(days: int = 1, path: str = "") -> list[dict[str, Any]]:
     cutoff = time.time() - (days * 86400)
 
     try:
-        import os as _os
         for root, dirs, files in os.walk(search_path):
             if any(hidden in root for hidden in [".git", "__pycache__", "node_modules", ".cache", ".npm"]):
                 continue

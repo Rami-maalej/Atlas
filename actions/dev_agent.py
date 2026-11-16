@@ -1,7 +1,7 @@
-import subprocess
-import sys
 import json
 import re
+import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -119,7 +119,7 @@ JSON:"""
         return json.loads(raw)
     except json.JSONDecodeError as e:
         raise ValueError(f"Planner returned invalid JSON: {e}")
-    except Exception as e:
+    except Exception:
         raise
 
 def _write_file(
@@ -166,7 +166,7 @@ def _write_file(
         full_path.write_text(code, encoding="utf-8")
         print(f"[DevAgent] ✅ Written: {file_path} ({len(code)} chars)")
         return code
-    except Exception as e:
+    except Exception:
         raise
 
 def _install_dependencies(dependencies: list[str], project_dir: Path) -> str:
@@ -205,6 +205,14 @@ def _install_dependencies(dependencies: list[str], project_dir: Path) -> str:
         return f"Install error (non-fatal): {e}"
 
 def _open_vscode(project_dir: Path) -> bool:
+    # Never pop a GUI editor from automated/offscreen runs.
+    import os
+    if (
+        os.environ.get("QT_QPA_PLATFORM") == "offscreen"
+        or os.environ.get("ATLANTIS_HEADLESS") == "1"
+    ):
+        print(f"[DevAgent] Headless run — skipping VSCode launch for {project_dir}")
+        return False
     vscode_candidates = [
         "code",
         rf"C:\Users\{Path.home().name}\AppData\Local\Programs\Microsoft VS Code\bin\code.cmd",

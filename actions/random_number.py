@@ -1,5 +1,4 @@
 import random
-import re
 
 
 def random_number(parameters: dict | None = None, player=None) -> str:

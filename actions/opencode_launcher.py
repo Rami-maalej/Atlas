@@ -16,7 +16,6 @@ import re
 import shutil
 import subprocess
 import sys
-import threading
 import urllib.request
 from pathlib import Path
 
@@ -72,7 +71,7 @@ def build_detailed_prompt(description: str, user_lang: str = "en") -> str:
     """Expand a short project idea into a high-detail dev prompt
     that OpenCode will execute autonomously."""
     detail = (
-        "You are building a new development project from the following idea: {description}\n\n"
+        f"You are building a new development project from the following idea: {description}\n\n"
         "WORK AS AN AUTONOMOUS SENIOR DEVELOPER. Follow these steps in order:\n"
         "1. ANALYZE — restate requirements, list features (MVP + stretch goals), "
         "pick the most appropriate stack (framework, language, database) and justify it briefly.\n"
@@ -91,7 +90,7 @@ def build_detailed_prompt(description: str, user_lang: str = "en") -> str:
         "- Commit nothing to git unless asked; keep everything inside the project folder.\n"
         "- Report what you built, where, and how to run it when finished.\n"
         "Respond in the same language as the user."
-    ).format(description=description)
+    )
     return detail
 
 

@@ -7,6 +7,7 @@
 
 # ── Silence verbose logs + block heavy unused backends ─────────────────────
 import os as _os
+
 _os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL",  "3")   # TensorFlow C++ noise
 _os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")   # oneDNN banner
 _os.environ.setdefault("GRPC_VERBOSITY",         "ERROR")
@@ -24,6 +25,7 @@ _os.environ.setdefault("HF_HUB_OFFLINE",      "1")
 _os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
 _os.environ.setdefault("HF_DATASETS_OFFLINE",  "1")
 import warnings as _warnings
+
 _warnings.filterwarnings("ignore", category=UserWarning)
 _warnings.filterwarnings("ignore", category=DeprecationWarning)
 _warnings.filterwarnings("ignore", category=FutureWarning)
@@ -32,8 +34,9 @@ _warnings.filterwarnings("ignore", category=FutureWarning)
 # ── Bootstrap: auto-install base UI packages before anything else ──────────
 # Uses only stdlib so it works even on a completely fresh Python install.
 import importlib.util as _ilu
-import subprocess      as _sp
-import sys             as _sys
+import subprocess as _sp
+import sys as _sys
+
 _BASE_PKGS = [
     ("PyQt6",       "PyQt6"),
     ("psutil",      "psutil"),
@@ -54,10 +57,9 @@ def _bootstrap() -> None:
     _os.execv(_sys.executable, [_sys.executable] + _sys.argv)
 _bootstrap()
 
-import sys
 # ───────────────────────────────────────────────────────────────────────────
-
 import logging
+import sys
 import threading
 from pathlib import Path
 
@@ -87,9 +89,9 @@ if Path("/usr/bin/xhost").exists():
 
 # ── Entry ──────────────────────────────────────────────────────────────────
 def main() -> None:
-    from ui import JarvisUI
-    from memory.config_manager import load_config
     from core.startup_progress import PROGRESS
+    from memory.config_manager import load_config
+    from ui import JarvisUI
 
     # Register the boot stages BEFORE the window opens, so the loading
     # screen renders the full list on its very first paint instead of

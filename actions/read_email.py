@@ -1,9 +1,8 @@
 import json
-import subprocess
 import platform
+import subprocess
 import time
 from pathlib import Path
-
 
 _BASE = Path(__file__).resolve().parent.parent
 _CONFIG_PATH = _BASE / "config" / "api_keys.json"
@@ -49,8 +48,8 @@ def read_email(
 
     if email_user and email_pass:
         try:
-            import imaplib
             import email as email_parser
+            import imaplib
             from email.header import decode_header
 
             servers = {

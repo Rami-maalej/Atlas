@@ -7,7 +7,7 @@ usually from commands like:
 """
 from __future__ import annotations
 
-from core.jarvis_vision import see_screen, format_screen_summary
+from core.jarvis_vision import format_screen_summary, see_screen
 
 
 def screen_vision(params: dict | None = None) -> str:

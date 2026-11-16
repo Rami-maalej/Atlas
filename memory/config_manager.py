@@ -1,10 +1,7 @@
 import json
-import sys
-from pathlib import Path
 
 from core.paths import base_dir as get_base_dir
 from core.paths import config_dir, config_path
-
 
 BASE_DIR    = get_base_dir()
 CONFIG_DIR  = config_dir()

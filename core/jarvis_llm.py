@@ -1,21 +1,19 @@
 """LLM turn processing (stream + overlapped TTS)."""
 from __future__ import annotations
-import traceback
-import time
-import re
-import queue
-import logging
-import json
+
 import asyncio
+import json
+import logging
 import threading
 from typing import Any
 
-from memory.vector_memory import get_relevant_context, store_conversation
-from skills.skill_loader  import get_active_skill_context
 from actions.intent_router import route as route_intent
-from core.jarvis_utils   import _is_greeting, _is_smalltalk
+from core.jarvis_utils import _is_smalltalk
+from core.llm_client import call_llm_stream
 from core.tools.declarations import OLLAMA_TOOLS
-from core.llm_client     import call_llm_stream
+from memory.vector_memory import get_relevant_context, store_conversation
+from skills.skill_loader import get_active_skill_context
+
 
 def _load_config() -> dict:
     from memory.config_manager import load_config as _lc
@@ -486,7 +484,7 @@ def _llm_error_hint(short: str) -> str:
             return "Groq API key missing/invalid — create a free key at console.groq.com and add it in Settings"
         return "API key missing or invalid — open Settings → PROVIDER and enter your API key"
     if "groq" in s or "openrouter" in s or "nvidia" in s or "openai" in s:
-        return f"Cloud provider unreachable — check your API key and internet connection"
+        return "Cloud provider unreachable — check your API key and internet connection"
     return ""
 
 # ------------------------------------------------------------------

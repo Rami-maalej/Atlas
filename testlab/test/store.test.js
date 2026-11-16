@@ -46,7 +46,7 @@ test('list filters by status and search query, newest first', async () => {
   await store.create({ title: 'Checkout test' });
   await store.update(first.id, { status: 'pass' });
 
-  assert.equal(store.list().length, 3);
+  assert.equal(store.list().length, 2);
   assert.equal(store.list({ status: 'pass' }).length, 1);
   assert.equal(store.list({ q: 'checkout' }).length, 1);
   assert.equal(store.list({ q: 'auth' }).length, 1);

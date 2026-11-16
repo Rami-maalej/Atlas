@@ -1,8 +1,6 @@
-import io
 import json
 import logging
 import os
-import re
 import subprocess
 import tempfile
 import traceback
@@ -10,6 +8,10 @@ from pathlib import Path
 
 try:
     from PIL import Image
+except ImportError:
+    Image = None
+
+try:
     import pytesseract
 except ImportError:
     pytesseract = None
@@ -78,7 +80,7 @@ _EXT_MAP = {
     "mp3": ".mp3", "wav": ".wav", "ogg": ".ogg", "flac": ".flac",
     "m4a": ".m4a", "aac": ".aac",
     "mp4": ".mp4", "avi": ".avi", "mkv": ".mkv", "mov": ".mov",
-    "webm": ".webm", "gif": ".gif",
+    "webm": ".webm",
 }
 
 
@@ -275,7 +277,6 @@ def convert_json_to_csv(source: str, **kwargs) -> str:
         data = json.load(f)
     if not data:
         raise RuntimeError("Empty JSON array")
-    import openpyxl
     with open(out, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=list(data[0].keys()))
         writer.writeheader()

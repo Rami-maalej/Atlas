@@ -1,13 +1,10 @@
 """Runtime reconfiguration."""
 from __future__ import annotations
-import sys
-import subprocess
-import shutil
-import logging
-import traceback
+
 import threading
 
 from core.llm_client import invalidate_config_cache
+
 
 def reconfigure(self, new_config: dict) -> None:
     """Non-blocking: spawns a background thread to install + reload."""

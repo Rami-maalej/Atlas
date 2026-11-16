@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import threading
 
-from actions.intent_router import IntentRouter
 from actions import stock_market, youtube_video
+from actions.intent_router import IntentRouter
 from core import jarvis_llm
 from core.jarvis_llm import _llm_unavailable_reply, _offline_identity_scope_reply
 

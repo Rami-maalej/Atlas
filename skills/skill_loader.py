@@ -1,8 +1,8 @@
 import json
-import os
 import re
-from pathlib import Path
 import sys
+from pathlib import Path
+
 
 def get_base_dir() -> Path:
     if getattr(sys, "frozen", False):

@@ -1,9 +1,10 @@
 import threading
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable, Any
+from typing import Any
 
 
 class TaskStatus(Enum):

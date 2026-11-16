@@ -1,9 +1,10 @@
 """Tool declarations (Gemini format) + Ollama conversion utilities."""
 from __future__ import annotations
 
-
 # Allow pyautogui / X11 tools to connect without authorization errors on Linux
-import platform as _platform, subprocess as _subprocess
+import platform as _platform
+import subprocess as _subprocess
+
 if _platform.system() == "Linux":
     try:
         _subprocess.run(["xhost", "+local:"], capture_output=True, timeout=3)

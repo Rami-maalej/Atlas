@@ -1,9 +1,9 @@
-import json
 import logging
 import threading
 from collections import defaultdict
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable
+from typing import Any
 
 logger = logging.getLogger("context_bus")
 

@@ -125,7 +125,7 @@ def use_tool(parameters: dict, player=None) -> str:
     # Locate the binary (install tool name hint for nmap which often missing)
     bin_name = _bin_for(tool)
     bin_on_path = shutil.which(bin_name) is not None or shutil.which(
-        ("ipconfig" if is_win and tool in ("ip", "ifconfig") else bin_name)
+        "ipconfig" if is_win and tool in ("ip", "ifconfig") else bin_name
     ) is not None
     if not bin_on_path:
         # On Linux, nmap-like tools need apt install; propose via install intent

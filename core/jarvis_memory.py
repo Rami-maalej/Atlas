@@ -23,7 +23,6 @@ import json
 import logging
 import time as _time
 from datetime import datetime
-from pathlib import Path
 from threading import RLock
 
 logger = logging.getLogger("jarvis.memory")
@@ -159,8 +158,8 @@ def format_human_recall(query: str, top_k: int = 5,
     emitted TWICE in the same system prompt (jarvis_prompt + here), wasting
     prompt budget on every single turn.
     """
-    from memory.memory_manager import load_memory, format_memory_for_prompt
-    from memory.vector_memory  import get_relevant_context, recent_conversations, search_conversation
+    from memory.memory_manager import format_memory_for_prompt, load_memory
+    from memory.vector_memory import get_relevant_context, recent_conversations, search_conversation
 
     parts: list[str] = []
 

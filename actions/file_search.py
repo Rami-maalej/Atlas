@@ -1,8 +1,6 @@
 import logging
-import os
 import platform
 import subprocess
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -41,7 +39,6 @@ def _search_linux(query: str, root: str | None, max_results: int) -> list[dict[s
         pass
 
     try:
-        import glob
         matches = []
         patterns = [
             f"**/*{query}*",

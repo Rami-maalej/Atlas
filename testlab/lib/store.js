@@ -55,7 +55,7 @@ export class Store {
     const now = new Date().toISOString();
     const item = {
       id: crypto.randomUUID(),
-      title: data.title,
+      title: typeof data.title === 'string' ? data.title.trim() : data.title,
       description: data.description || '',
       steps: data.steps || '',
       status: data.status || 'draft',

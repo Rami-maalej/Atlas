@@ -2,8 +2,7 @@ import base64
 import json
 import logging
 import os
-from pathlib import Path
-from typing import Any
+
 from core.paths import memory_path
 
 logger = logging.getLogger("security_vault")

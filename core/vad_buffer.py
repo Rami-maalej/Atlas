@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import numpy as np
 
+
 class _VADBuffer:
     """Energy-based VAD: buffers audio until end of utterance."""
 

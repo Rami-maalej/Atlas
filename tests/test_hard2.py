@@ -9,14 +9,13 @@ Run: QT_QPA_PLATFORM=offscreen python3 -m pytest tests/test_hard2.py -q
 from __future__ import annotations
 
 import json
-import time
-import re
 import textwrap
 import unittest
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 import sys
+
 sys.path.insert(0, str(REPO))
 
 
@@ -270,8 +269,10 @@ class TestConfigFallbacks(unittest.TestCase):
         # Patch the config file to claim groq + a localhost URL, then force
         # llm_client to recompute. The URL guard must redirect to the real
         # Groq endpoint (never localhost:11434 for a cloud provider).
-        from core import llm_client as _lc, jarvis_config as _jc
         import shutil
+
+        from core import jarvis_config as _jc
+        from core import llm_client as _lc
         cfg_path = Path(_jc.__file__).parent.parent / "config" / "api_keys.json"
         bak_path = cfg_path.with_suffix(".bak_test")
         shutil.copyfile(cfg_path, bak_path)

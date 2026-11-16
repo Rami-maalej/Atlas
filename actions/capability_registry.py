@@ -6,14 +6,11 @@ what it can do and the Intent Router uses this to route without LLM.
 
 from __future__ import annotations
 
-import inspect
-import json
 import logging
 import re
 import threading
-from pathlib import Path
-from typing import Any, Callable
-from core.paths import memory_path
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger("capability_registry")
 

@@ -1,4 +1,5 @@
 import re
+
 import requests
 
 _WEATHER_EMOJIS = {
@@ -50,7 +51,7 @@ def _fetch_weather(lat: float, lon: float, city: str) -> str | None:
         )
         r.raise_for_status()
         data = r.json()
-    except Exception as e:
+    except Exception:
         return None
 
     current = data.get("current", {})

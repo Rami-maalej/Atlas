@@ -1,13 +1,12 @@
+import asyncio
+import json
+import sys
+from pathlib import Path
+
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-import asyncio
-import json
-import os
-import sys
-from pathlib import Path
 from websockets import connect
-from typing import Dict
 
 _PARENT = Path(__file__).resolve().parent
 _CONFIG_PATH = _PARENT.parent.parent.parent / "config" / "api_keys.json"
@@ -139,7 +138,7 @@ class GeminiConnection:
         await self.ws.send(json.dumps(text_message))
 
 
-connections: Dict[str, GeminiConnection] = {}
+connections: dict[str, GeminiConnection] = {}
 
 
 @app.websocket("/ws/{client_id}")

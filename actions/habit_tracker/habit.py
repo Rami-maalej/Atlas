@@ -1,5 +1,6 @@
 from datetime import datetime
 
+
 class Habit:
     def __init__(self, name: str, periodicity: str, category: str):
         self.id = None

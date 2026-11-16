@@ -1,8 +1,6 @@
 """Text-to-speech worker + speak helpers."""
 from __future__ import annotations
-import traceback
-import logging
-import queue
+
 
 def _tts_worker(self) -> None:
     # Block until TTS engine is loaded.  Queued items are preserved

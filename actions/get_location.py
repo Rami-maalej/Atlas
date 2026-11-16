@@ -11,13 +11,13 @@ Reverse geocoding: Nominatim / OpenStreetMap (free, no API key).
 """
 
 from __future__ import annotations
+
 import os
 import subprocess
 import sys
-import threading
-import re
-import requests
 from pathlib import Path
+
+import requests
 
 from memory.memory_manager import load_memory as _load_memory
 

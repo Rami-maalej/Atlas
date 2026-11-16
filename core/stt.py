@@ -16,6 +16,7 @@ class WhisperSTT:
 
     def __init__(self, model_name: str = "base", language: str | None = None):
         import os
+
         from faster_whisper import WhisperModel
         print(f"[STT] Loading Whisper '{model_name}'…")
         try:
@@ -56,6 +57,9 @@ class WhisperSTT:
                 raise
 
         self._language = None if (not language or language.strip().lower() == "auto") else language.strip().lower()
+        # Language auto-detection costs ~100-200 ms per utterance; cache the
+        # detected language and reuse it as a hint on the next turn.
+        self._detected_language: str | None = None
         print(f"[STT] Whisper '{model_name}' ready ({device}, {_threads} threads)")
 
         # Warm the graph up so the FIRST real utterance is not slower than
@@ -69,16 +73,19 @@ class WhisperSTT:
     def transcribe(self, audio: np.ndarray) -> str:
         """Transcribe a float32 mono 16 kHz numpy array. Returns transcript string."""
         try:
-            segments, _ = self._model.transcribe(
+            # vad_filter=False: the outer energy VAD (core/vad_buffer.py) has
+            # already trimmed leading/trailing silence — running Silero's VAD
+            # again on the trimmed buffer is redundant CPU work per turn.
+            segments, info = self._model.transcribe(
                 audio,
-                language=self._language,
+                language=self._language or self._detected_language,
                 beam_size=1,                       # greedy — 2-3x faster
                 best_of=1,
                 condition_on_previous_text=False,  # no hallucinations, faster
                 without_timestamps=True,           # skip timestamp decoding
-                vad_filter=True,
-                vad_parameters={"min_silence_duration_ms": 300},
             )
+            if self._language is None and info is not None and getattr(info, "language", None):
+                self._detected_language = info.language
             return " ".join(s.text for s in segments).strip()
         except Exception as e:
             print(f"[STT] Transcription error: {e}")
@@ -89,7 +96,7 @@ class VoskSTT:
     """Streaming transcription using Vosk."""
 
     def __init__(self, model_path: str | None = None, language: str = "en-us"):
-        from vosk import Model, KaldiRecognizer
+        from vosk import KaldiRecognizer, Model
         print("[STT] Loading Vosk model…")
         if model_path:
             model = Model(model_path)

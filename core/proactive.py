@@ -16,9 +16,11 @@ from __future__ import annotations
 import json
 import logging
 import threading
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
+
 from core.paths import memory_path
 
 logger = logging.getLogger("proactive")

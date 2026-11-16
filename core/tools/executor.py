@@ -1,139 +1,204 @@
 """Per-tool execution logic (extracted from main.py _execute_tool)."""
 from __future__ import annotations
+
 import json
 import threading
-from datetime import datetime
 import traceback
+from datetime import datetime
+
+import actions.archive_tools as _arch
+import actions.device_scanner as _devices
+import actions.media_downloader as _dl
+import actions.news_pro as _news_pro
+import actions.process_mgr as _proc
+import actions.stock_market as _stocks
+import actions.system_health as _health
+import actions.translator as _trans
+import actions.wiki_tools as _wiki
+from actions.books import book_controller
+from actions.clipboard_mgr import clipboard_read as _clip_read
+from actions.clipboard_mgr import clipboard_write as _clip_write
+from actions.code_helper import code_helper
+from actions.computer_control import computer_control
+from actions.computer_settings import computer_settings
+from actions.context_bus import get_all_context, get_bus, get_context
+from actions.dashboard import (
+    add_to_dashboard,
+    list_dashboard,
+    open_dashboard,
+    remove_from_dashboard,
+)
+from actions.dashboard import (
+    log_usage as dashboard_log_usage,
+)
+from actions.desktop import desktop_control
+from actions.dev_agent import dev_agent
+from actions.dictionary_tools import word_definition as _word_def
+from actions.dictionary_tools import word_example as _word_ex
+from actions.dictionary_tools import word_synonyms as _word_syn
+from actions.doc_tools import create_document as _create_document_action
+from actions.email_reader import read_emails
+from actions.fast_browser import fast_browser as _fast_browser_action
+from actions.fcc_runner import run_fcc_in_folder
+from actions.federation import federation
+from actions.file_controller import file_controller
 
 # ── Action imports (identiques au main.py original) ──────────────────────
 from actions.file_processor import file_processor
-from actions.flight_finder import flight_finder
-from actions.open_app import open_app
-from actions.fcc_runner import run_fcc_in_folder
-from actions.dashboard import (
-    add_to_dashboard,
-    remove_from_dashboard,
-    list_dashboard,
-    open_dashboard,
-    log_usage as dashboard_log_usage,
-)
-from actions.weather_report import weather_action
-from actions.maps import maps_action
-from actions.stock_prices import stock_price_action
-from actions.news_reader import news_action
-from actions.public_apis import check_crypto, check_currency, check_time, check_quote, check_rate
-from actions.opencode_launcher import opencode_action
-from actions.get_datetime import get_datetime
-from actions.send_message import send_message
-from actions.reminder import reminder
-from actions.computer_settings import computer_settings
-from actions.youtube_video import youtube_video
-from actions.desktop import desktop_control
-from actions.books import book_controller
-from actions.jobs import job_search_action
-from actions.file_controller import file_controller
-from actions.code_helper import code_helper
-from actions.dev_agent import dev_agent
-from actions.web_search import web_search as web_search_action
-from actions.computer_control import computer_control
-from actions.game_updater import game_updater
-from actions.get_location import get_location
-from actions.screen_reader import get_ui_elements, get_active_window_info
-from actions.github_integration import _get_client as _get_gh_client
-from actions.github_integration import clone_and_run
 from actions.file_search import search_files
 from actions.finance_tracker import _get_client as _get_finance_client
-from actions.network_discovery import discover_services, get_local_ips
-from actions.voice_calls import _get_client as _get_lk_client
-from actions.monitor_manager import get_monitors, get_monitor_summary, set_monitor_brightness, get_active_monitor
-from actions.obsidian_vault import save_note, search_notes, read_note, list_notes, create_knowledge_graph, set_vault_path, get_all_tags
-from actions.package_manager import install_package, uninstall_package, list_installed, update_all, detect_os_package_manager
-from actions.goal_engine import create_goal, list_goals, get_goal, update_goal_progress, complete_step, delete_goal, get_goal_summary
-from actions.task_manager import task_manager, budget_manager, add_task, complete_task, delete_task, list_tasks, add_transaction, list_transactions, budget_summary
-from actions.screen_explain import screen_explain
-from actions.screen_vision import screen_vision as screen_vision_action
-import actions.device_scanner as _devices
-import actions.stock_market as _stocks
-import actions.translator as _trans
-import actions.media_downloader as _dl
-import actions.network_tools as _net
-import actions.process_mgr as _proc
-import actions.archive_tools as _arch
-import actions.wiki_tools as _wiki
-import actions.system_health as _health
-import actions.news_pro as _news_pro
+from actions.flight_finder import flight_finder
+from actions.forensics import (
+    file_history,
+    get_forensics_summary,
+    network_history,
+    process_history,
+    what_installed_since,
+)
+from actions.game_updater import game_updater
+from actions.get_datetime import get_datetime
+from actions.get_location import get_location
+from actions.github_integration import _get_client as _get_gh_client
+from actions.github_integration import clone_and_run
+from actions.goal_engine import (
+    complete_step,
+    create_goal,
+    delete_goal,
+    get_goal,
+    get_goal_summary,
+    list_goals,
+    update_goal_progress,
+)
+from actions.google_workspace import google_workspace_action
+from actions.habit_actions import handle as handle_habit
+from actions.hash_tools import hash_file as _hash_file
+from actions.hash_tools import hash_string as _hash_str
+from actions.hermes_agent import hermes_task as hermes_agent_task
 from actions.image_edit import edit_image as _image_edit_action
 from actions.install_tool import install_tool as _install_tool_action
-from actions.doc_tools import create_document as _create_document_action
-from actions.pdf_reader import read_pdf as _read_pdf_action
-from actions.screenshot_ocr import screen_vision as _screen_read_action
-from actions.network_tools import run_speedtest as _speedtest_action
-from actions.fast_browser import fast_browser as _fast_browser_action
-
-from actions.qr_tools import qr_generate as _qr_gen, qr_scan as _qr_scan
-from actions.clipboard_mgr import clipboard_read as _clip_read, clipboard_write as _clip_write
-from actions.dictionary_tools import word_definition as _word_def, word_synonyms as _word_syn, word_example as _word_ex
+from actions.jobs import job_search_action
+from actions.maps import maps_action
 from actions.math_solver import solve_math as _solve_math
-from actions.hash_tools import hash_string as _hash_str, hash_file as _hash_file
-from actions.random_tools import dice_roll as _dice_roll, coin_flip as _coin_flip, random_pick as _rand_pick
-from actions.notes_tools import quick_note_save as _note_save, quick_note_list as _note_list, quick_note_find as _note_find
-from actions.system_info_tools import battery_status as _battery, disk_info as _disk_info, wifi_status as _wifi
-from actions.screenshot_ocr import screen_find_text as _screen_find
+from actions.monitor_manager import (
+    get_active_monitor,
+    get_monitor_summary,
+    get_monitors,
+    set_monitor_brightness,
+)
+from actions.network_discovery import discover_services, get_local_ips
+from actions.network_tools import run_speedtest as _speedtest_action
+from actions.news_reader import news_action
+from actions.notes_tools import quick_note_find as _note_find
+from actions.notes_tools import quick_note_list as _note_list
+from actions.notes_tools import quick_note_save as _note_save
+from actions.obsidian_vault import (
+    create_knowledge_graph,
+    get_all_tags,
+    list_notes,
+    read_note,
+    save_note,
+    search_notes,
+    set_vault_path,
+)
+from actions.open_app import open_app
+from actions.opencode_launcher import opencode_action
+from actions.package_manager import (
+    detect_os_package_manager,
+    install_package,
+    list_installed,
+    uninstall_package,
+    update_all,
+)
+from actions.pdf_reader import read_pdf as _read_pdf_action
+from actions.project_init import handle as project_init_handle
+from actions.project_scaffold import scaffold_project
+from actions.projectinitializer import handle as project_initializer_handle
+from actions.public_apis import check_crypto, check_quote, check_rate, check_time
+from actions.qr_tools import qr_generate as _qr_gen
+from actions.qr_tools import qr_scan as _qr_scan
+
 # Heavy tool modules (playwright, cv2 pipelines, pptx, networkx) are imported
 # lazily at their call sites — keeps startup ~2 s faster.
 from actions.random_number import random_number
-from actions.system_info import system_info
-from actions.unit_converter import convert_units
-from actions.timer_scheduler import handle as timer_handle, set_on_fire as timer_set_callback
-from actions.security_vault import store_secret, get_secret, list_secrets, delete_secret
-from actions.context_bus import get_bus, get_context, get_all_context
-from actions.project_scaffold import scaffold_project
-from actions.project_init import handle as project_init_handle
-from actions.projectinitializer import handle as project_initializer_handle
-from actions.relationship_graph import (
-    add_node, remove_node, add_edge, remove_edge,
-    get_related, resolve_deployment, get_graph_summary,
-)
+from actions.random_tools import coin_flip as _coin_flip
+from actions.random_tools import dice_roll as _dice_roll
+from actions.random_tools import random_pick as _rand_pick
 from actions.realtime_tutor import realtime_tutor, stop_tutor
-from actions.email_reader import read_emails
-from actions.habit_actions import handle as handle_habit
-from actions.forensics import file_history, process_history, network_history, what_installed_since, get_forensics_summary
-from actions.google_workspace import google_workspace_action
+from actions.relationship_graph import (
+    add_edge,
+    add_node,
+    get_graph_summary,
+    get_related,
+    remove_edge,
+    remove_node,
+    resolve_deployment,
+)
+from actions.reminder import reminder
 from actions.remote_control import remote_control
-from actions.federation import federation
-from actions.intent_router import route as route_intent
-from actions.hermes_agent import hermes_task as hermes_agent_task
+from actions.screen_explain import screen_explain
+from actions.screen_reader import get_active_window_info, get_ui_elements
+from actions.screen_vision import screen_vision as screen_vision_action
+from actions.screenshot_ocr import screen_find_text as _screen_find
+from actions.screenshot_ocr import screen_vision as _screen_read_action
+from actions.security_vault import delete_secret, get_secret, list_secrets, store_secret
+from actions.send_message import send_message
+from actions.stock_prices import stock_price_action
+from actions.system_info import system_info
+from actions.system_info_tools import battery_status as _battery
+from actions.system_info_tools import disk_info as _disk_info
+from actions.system_info_tools import wifi_status as _wifi
+from actions.task_manager import (
+    add_task,
+    add_transaction,
+    budget_summary,
+    complete_task,
+    delete_task,
+    list_tasks,
+    list_transactions,
+)
+from actions.timer_scheduler import handle as timer_handle
+from actions.unit_converter import convert_units
+from actions.voice_calls import _get_client as _get_lk_client
+from actions.weather_report import weather_action
+from actions.web_search import web_search as web_search_action
+from actions.youtube_video import youtube_video
 
 # ── Core / agent / memory / skills ───────────────────────────────────────
 from agent.agent_manager import get_agent_manager
-from core.scheduler import get_scheduler
-from skills.skill_loader import get_active_skill_context, list_skills, reload_skills
-from memory.memory_manager import (
-    load_memory,
-    update_memory,
-    format_memory_for_prompt,
-    normalize_category,
-)
-from memory.vector_memory import store_memory, store_conversation, get_relevant_context, get_memory_count, search_memory
 from core.safe_math import safe_math as calculate
-from core.fast_browser import FastBrowser, get_fast_browser
-
+from core.scheduler import get_scheduler
 from gws_bridge import (
-    get_unread_emails as gws_get_unread_emails,
-    search_emails as gws_search_emails,
-    send_email as gws_send_email,
-    reply_email as gws_reply_email,
+    create_doc,
+    create_event,
+    create_meet,
+    delete_event,
     get_todays_agenda,
     get_upcoming_events,
-    create_event,
-    delete_event,
-    search_files as gws_search_files,
     upload_file,
-    create_doc,
-    create_meet,
-    is_authenticated as gws_is_authenticated,
-    GwsError,
 )
+from gws_bridge import (
+    get_unread_emails as gws_get_unread_emails,
+)
+from gws_bridge import (
+    reply_email as gws_reply_email,
+)
+from gws_bridge import (
+    search_emails as gws_search_emails,
+)
+from gws_bridge import (
+    send_email as gws_send_email,
+)
+from memory.memory_manager import (
+    load_memory,
+    normalize_category,
+    update_memory,
+)
+from memory.vector_memory import (
+    search_memory,
+    store_memory,
+)
+from skills.skill_loader import list_skills, reload_skills
+
 
 def execute_tool(ui, name: str, args: dict,
                  speak=lambda x: None,
@@ -305,7 +370,7 @@ def execute_tool(ui, name: str, args: dict,
                 r = hermes_agent_task(goal)
                 result = r or "Done."
             except Exception:
-                from agent.task_queue import get_queue, TaskPriority
+                from agent.task_queue import TaskPriority, get_queue
                 priority_map = {
                     "low": TaskPriority.LOW,
                     "normal": TaskPriority.NORMAL,
@@ -460,7 +525,6 @@ def execute_tool(ui, name: str, args: dict,
             ui.write_log("SYS: Shutdown requested.")
 
             def _shutdown():
-                import time
                 from core.lifecycle import shutdown as _lifecycle_shutdown
                 _lifecycle_shutdown(ui, speak_text="Goodbye.")
 
@@ -746,7 +810,7 @@ def execute_tool(ui, name: str, args: dict,
             local_path = args.get("local_path", "")
             folder_id = args.get("folder_id")
             run_async(upload_file(local_path=local_path, folder_id=folder_id))
-            result = f"File uploaded to Drive."
+            result = "File uploaded to Drive."
 
         elif name == "drive_create_doc":
             title = args.get("title", "")
@@ -921,7 +985,7 @@ def execute_tool(ui, name: str, args: dict,
                         lines.append(f"  {cat}: ${amt}")
                     result = "\n".join(lines)
                 elif action == "balances":
-                    result = getattr(fc, "get_account_balances")()
+                    result = fc.get_account_balances()
                 else:
                     result = f"Unknown finance action: {action}"
             except ImportError as e:
@@ -1142,12 +1206,18 @@ def execute_tool(ui, name: str, args: dict,
         # ── Task Graph ────────────────────────────────────────────────
         elif name == "task_graph":
             from actions.task_graph import (
-                create_task as tg_create_task,
                 complete_task as tg_complete_task,
-                get_available_tasks,
-                get_task_graph_summary,
-                get_critical_path,
+            )
+            from actions.task_graph import (
+                create_task as tg_create_task,
+            )
+            from actions.task_graph import (
                 delete_task as tg_delete_task,
+            )
+            from actions.task_graph import (
+                get_available_tasks,
+                get_critical_path,
+                get_task_graph_summary,
                 reset_graph,
             )
             action = args.get("action", "")
@@ -1449,7 +1519,7 @@ def execute_tool(ui, name: str, args: dict,
             result = convert_units(parameters=args, player=ui)
 
         elif name == "filesystem_query":
-            from actions.file_controller import get_largest_files, get_disk_usage
+            from actions.file_controller import get_disk_usage, get_largest_files
             a = (args or {}).get("action", "largest")
             path = (args or {}).get("path", "home")
             count = int((args or {}).get("count", 10))

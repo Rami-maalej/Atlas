@@ -24,10 +24,10 @@ def battery_status(parameters: dict | None = None, player=None) -> str:
         if platform.system() == "Linux":
             for path in ["/sys/class/power_supply/BAT0/capacity", "/sys/class/power_supply/BAT1/capacity"]:
                 try:
-                    with open(path, "r") as f:
+                    with open(path) as f:
                         cap = f.read().strip()
                         return f"Battery: {cap}% (Linux sysfs)"
-                except:
+                except Exception:
                     continue
         
         return "No battery detected on this machine (desktop?)."

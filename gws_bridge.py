@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 import shlex
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -37,7 +37,7 @@ async def _run_gws(*args: str, timeout: int = 30) -> Any:
     )
     try:
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         proc.kill()
         raise GwsError(f"Command timed out after {timeout}s: {' '.join(cmd)}")
     if proc.returncode != 0:

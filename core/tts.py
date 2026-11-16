@@ -11,16 +11,16 @@ import asyncio
 import os
 import queue as _queue
 import threading
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import numpy as np
+
 try:
     import sounddevice as sd  # noqa: F401  (lazy: used inside functions only)
 except OSError:
     sd = None  # type: ignore[assignment]
 
 from core.hf_utils import remove_broken_hf_snapshot, reset_hf_offline_flags
-
 
 # USE_TF=0 stops transformers from importing TensorFlow (saves 4-8 s startup).
 # Do NOT set USE_TORCH or USE_JAX explicitly — forcing those values breaks
@@ -271,7 +271,7 @@ class KokoroTTSEngine:
                 except RuntimeError:
                     pass
                 print(
-                    f"[TTS] Kokoro on CPU — for faster speech install CUDA PyTorch:\n"
+                    "[TTS] Kokoro on CPU — for faster speech install CUDA PyTorch:\n"
                     "      pip install torch --index-url https://download.pytorch.org/whl/cu118"
                 )
         except Exception:
@@ -322,7 +322,7 @@ class KokoroTTSEngine:
         # With a producer/consumer pair, chunk N+1 synthesises WHILE chunk N
         # plays, cutting perceived latency by the playback duration of all but
         # the last chunk (typically 1-3 s on multi-sentence responses).
-        audio_q: "_queue.Queue[np.ndarray | None]" = _queue.Queue(maxsize=4)
+        audio_q: _queue.Queue[np.ndarray | None] = _queue.Queue(maxsize=4)
         synth_error: list[Exception] = []
 
         def _synth():
@@ -446,8 +446,8 @@ class TTSPlayer:
     def speak(
         self,
         text:     str,
-        on_start: Optional[Callable] = None,
-        on_done:  Optional[Callable] = None,
+        on_start: Callable | None = None,
+        on_done:  Callable | None = None,
     ) -> None:
         """Synthesise and play text. BLOCKING – call from a dedicated thread."""
         try:

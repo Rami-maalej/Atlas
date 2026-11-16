@@ -1,6 +1,5 @@
 # web_search.py
 # Gemini grounded-search replaced with DuckDuckGo + Ollama LLM summarization.
-import json
 import sys
 from pathlib import Path
 

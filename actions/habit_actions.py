@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+from actions.habit_tracker.analytics import (
+    calculate_current_streak,
+    calculate_longest_streak_all,
+    calculate_longest_streak_habit,
+    generate_monthly_report,
+    generate_weekly_report,
+    get_by_category,
+    get_by_periodicity,
+    get_completion_rate,
+    get_most_struggled_habit,
+)
 from actions.habit_tracker.database import Database
 from actions.habit_tracker.habit import Habit
-from actions.habit_tracker.analytics import (
-    get_by_periodicity, get_by_category,
-    calculate_longest_streak_all, calculate_longest_streak_habit,
-    calculate_current_streak, get_completion_rate,
-    get_most_struggled_habit, generate_weekly_report, generate_monthly_report,
-)
 
 
 def _load() -> list[Habit]:

@@ -33,7 +33,7 @@ def _make_app():
         allow_headers=["*"],
     )
 
-    from fastapi import Depends, HTTPException, Header
+    from fastapi import Depends, Header, HTTPException
 
     async def _verify_key(x_api_key: str = Header(default="")) -> None:
         if _API_KEY and x_api_key != _API_KEY:
@@ -179,7 +179,6 @@ def remote_control(
         return stop_server()
     elif action == "status":
         if _httpd:
-            import uvicorn
             return "Remote control server is running."
         return "Remote control server is not running."
     return f"Unknown action: {action}"

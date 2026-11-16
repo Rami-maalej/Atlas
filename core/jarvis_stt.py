@@ -1,12 +1,10 @@
 """Speech-to-text listeners (Whisper / Vosk)."""
 from __future__ import annotations
-import traceback
-import time
-import re
+
 import queue
 import threading
+import traceback
 
-import numpy as np
 try:
     import sounddevice as sd  # noqa: F401  (lazy: used inside functions only)
 except OSError:
@@ -15,8 +13,9 @@ except OSError:
     # is actually opened (SD_MISSING guard).
     sd = None  # type: ignore[assignment]
 
+from core.audio_consts import BLOCK_SIZE, CHANNELS, SAMPLE_RATE_IN
 from core.vad_buffer import _VADBuffer
-from core.audio_consts import SAMPLE_RATE_IN, CHANNELS, BLOCK_SIZE
+
 
 def _listen_whisper(self) -> None:
     """Mic → VAD → Whisper → LLM loop.
@@ -56,17 +55,9 @@ def _listen_whisper(self) -> None:
                     audio = vad.process(chunk.flatten())
                     if audio is not None:
                         self.ui.set_state("THINKING")
-                        _text_result: list[str] = [""]
-                        _raw_audio_ref = audio
-
-                        def _do_transcribe():
-                            _text_result[0] = self._stt.transcribe(_raw_audio_ref)
-
-                        _t_asr = threading.Thread(target=_do_transcribe, daemon=True)
-                        _t_asr.start()
-                        _t_asr.join()
-
-                        text = _text_result[0]
+                        # Transcribe inline — wrapping it in a thread and
+                        # joining immediately was pure overhead.
+                        text = self._stt.transcribe(audio)
                         if text.strip():
                             self._prefetch_thread = threading.Thread(
                                 target=self._prefetch_context,

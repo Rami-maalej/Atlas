@@ -11,24 +11,22 @@ import logging
 import queue
 import threading
 import traceback
-from typing import Any
 
-from ui import JarvisUI
-
-from core.tools.executor    import execute_tool
-from core.tools.declarations import OLLAMA_TOOLS
-from core.jarvis_config   import reconfigure as do_reconfigure
-from core.jarvis_llm      import _process_message as _pm, _run_async as _ra, _prefetch_context as _pc
-from core.jarvis_stt      import _listen_whisper as _lw, _listen_vosk as _lv, _text_command_loop as _tcl
-from core.jarvis_tts      import _tts_worker as _tw, set_speaking, speak, speak_error
-from core.jarvis_prompt   import _load_system_prompt, _build_system_prompt
-from core.jarvis_utils    import _is_greeting, calculate
-from core.jarvis_script_lang import _auto_switch_language
-from core.vad_buffer      import _VADBuffer
-from memory.memory_manager import load_memory
-from core.llm_client      import ensure_ollama_running, warmup_model, get_llm_provider
 from actions.timer_scheduler import set_on_fire as timer_set_callback
-from core.scheduler       import get_scheduler
+from core.jarvis_config import reconfigure as do_reconfigure
+from core.jarvis_llm import _process_message as _pm
+from core.jarvis_llm import _run_async as _ra
+from core.jarvis_prompt import _build_system_prompt, _load_system_prompt
+from core.jarvis_script_lang import _auto_switch_language
+from core.jarvis_stt import _listen_vosk as _lv
+from core.jarvis_stt import _listen_whisper as _lw
+from core.jarvis_stt import _text_command_loop as _tcl
+from core.jarvis_tts import _tts_worker as _tw
+from core.jarvis_tts import set_speaking, speak
+from core.llm_client import ensure_ollama_running, get_llm_provider, warmup_model
+from core.scheduler import get_scheduler
+from core.tools.executor import execute_tool
+from ui import JarvisUI
 
 
 def _load_config() -> dict:
@@ -104,7 +102,8 @@ class JarvisLocal:
             if act in ("shutdown", "restart", "sleep"):
                 logger.info("Timer triggered system action: %s", act)
                 self.ui.log(f"[Timer] executing: {act}")
-                import subprocess, shlex
+                import shlex
+                import subprocess
                 cmds = {"shutdown": "shutdown -h now", "restart": "shutdown -r now",
                         "sleep": "systemctl suspend"}
                 subprocess.Popen(shlex.split(cmds[act]))

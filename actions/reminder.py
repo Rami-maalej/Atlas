@@ -1,10 +1,10 @@
 import json
-import os
 import shutil
 import subprocess
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
+
 
 def _base_dir() -> Path:
     if getattr(sys, "frozen", False):

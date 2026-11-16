@@ -1,6 +1,6 @@
 import sqlite3
-import os
 from pathlib import Path
+
 from .habit import Habit
 
 _DATA_DIR = Path(__file__).resolve().parent / "data"

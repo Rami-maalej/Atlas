@@ -2,11 +2,9 @@ import json
 import time as _time
 from datetime import datetime
 from threading import Lock
-from pathlib import Path
 
 from core.paths import base_dir as get_base_dir
 from core.paths import memory_path
-
 
 BASE_DIR         = get_base_dir()
 MEMORY_PATH      = memory_path("long_term.json")
@@ -240,7 +238,7 @@ def _mirror_to_vault(memory: dict) -> None:
     when no vault is configured.
     """
     try:
-        from actions.obsidian_vault import load_facts, store_facts
+        from actions.obsidian_vault import store_facts
     except Exception:
         return
     for category in CATEGORIES:

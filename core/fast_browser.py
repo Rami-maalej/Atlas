@@ -22,15 +22,12 @@ On macOS/Linux, the built-in browser detection takes over automatically.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import os
 import platform
 import re
 import socket
-import subprocess
 import threading
-from typing import Any, Callable
 
 import requests
 
@@ -95,7 +92,7 @@ class FastBrowser:
         fut = asyncio.run_coroutine_threadsafe(self._dispatch(command), self._loop)
         try:
             return fut.result(timeout=timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return "Browser command timed out."
         except Exception as e:
             return f"Browser error: {e}"
@@ -245,7 +242,7 @@ class FastBrowser:
                 target, query = m.group(1), m.group(2)
                 if query:
                     return await self.go(f"https://www.google.com/search?q={query.replace(' ', '+')}")
-                return f"Use: type into FIELD the TEXT — or just say 'search X'"
+                return "Use: type into FIELD the TEXT — or just say 'search X'"
 
         if lower.startswith("enter"):
             return await self.press_key("Enter")

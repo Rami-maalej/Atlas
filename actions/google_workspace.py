@@ -7,12 +7,9 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import threading
-from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any
 
 try:
     from google.oauth2.credentials import Credentials
@@ -76,7 +73,7 @@ def _load_token():
         return None
     if TOKEN_PATH.exists():
         try:
-            with open(TOKEN_PATH, "r") as f:
+            with open(TOKEN_PATH) as f:
                 _creds = Credentials.from_json(f.read())
             return _creds
         except Exception as e:
@@ -185,8 +182,8 @@ def get_unread_emails(limit: int = 10) -> list[dict]:
 
 
 def send_email(to: str, subject: str, body: str) -> dict:
-    from email.mime.text import MIMEText
     import base64
+    from email.mime.text import MIMEText
     service = _get_service("gmail", "v1")
     message = MIMEText(body)
     message["to"] = to
@@ -323,7 +320,7 @@ def google_workspace_action(parameters: dict, player=None) -> str:
             if not events:
                 return "No upcoming events."
             lines = [f"{e['start'][:10]} {e['summary']}" for e in events]
-            return f"Upcoming events:\n" + "\n".join(lines)
+            return "Upcoming events:\n" + "\n".join(lines)
 
         elif action == "calendar_create":
             r = create_event(parameters["summary"], parameters["start_time"], parameters["end_time"])

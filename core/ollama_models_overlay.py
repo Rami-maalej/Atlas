@@ -15,13 +15,28 @@ from pathlib import Path
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
-    QHBoxLayout, QHeaderView, QInputDialog, QLabel, QLineEdit, QPushButton,
-    QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QFrame,
+    QFrame,
+    QHBoxLayout,
+    QHeaderView,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QScrollArea,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
 )
 
 from core.ollama_models import (
-    OLLAMA_LIBRARY, ANY_MODEL_NOTE, delete_model, list_local_models,
-    pull_model, is_running, current_model,
+    ANY_MODEL_NOTE,
+    OLLAMA_LIBRARY,
+    current_model,
+    delete_model,
+    is_running,
+    list_local_models,
+    pull_model,
 )
 
 

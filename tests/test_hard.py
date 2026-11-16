@@ -184,7 +184,7 @@ class TestProviderOverlayAdmin:
 
     def test_submit_groq_uses_groq_url(self):
         from PyQt6.QtCore import QTimer
-        from core.llm_provider_detector import get_provider
+
         ov = self._make()
         QTimer.singleShot(600, lambda: ov._select_provider("groq"))
         QTimer.singleShot(800, ov._submit)
@@ -239,7 +239,7 @@ class TestProviderOverlayAdmin:
 # ---------------------------------------------------------------------------
 class TestMemoryConcurrency:
     def test_concurrent_episode_writes(self):
-        from core.jarvis_memory import record_episode, update_last_episode, _lock
+        from core.jarvis_memory import record_episode, update_last_episode
         errors: list = []
 
         def writer(i: int):
@@ -257,7 +257,7 @@ class TestMemoryConcurrency:
         assert not errors, errors
 
     def test_recall_format(self):
-        from core.jarvis_memory import record_episode, recent_episodes
+        from core.jarvis_memory import recent_episodes, record_episode
         record_episode("hello jarvis", "hi there")
         recents = recent_episodes(3)
         joined = json.dumps(recents)
