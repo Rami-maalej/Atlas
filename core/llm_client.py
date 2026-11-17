@@ -51,6 +51,8 @@ import time
 from collections.abc import Generator
 from pathlib import Path
 
+_PULLED_MODELS: set[str] = set()  # models already attempted this session
+
 import requests
 
 # Matches a sentence boundary: [.!?] followed by whitespace, or a blank line.
@@ -243,10 +245,22 @@ def get_llm_headers() -> dict:
     """Generates requests headers containing the API key if configured."""
     cfg = _load_config()
     headers = {}
-    key = cfg.get("llm_api_key", "").strip()
+    provider = get_llm_provider()
+    # Each provider stores its key in its own config field — using only
+    # llm_api_key broke NIM/OpenRouter/Groq calls after a provider switch.
+    key = ""
+    try:
+        from core.llm_provider_detector import get_provider
+        p = get_provider(provider.replace("-", "_"))
+        field = (p or {}).get("key_field")
+        if field:
+            key = (cfg.get(field) or "").strip()
+    except Exception:
+        pass
+    if not key:
+        key = (cfg.get("llm_api_key") or "").strip()
     if key:
         headers["Authorization"] = f"Bearer {key}"
-    provider = get_llm_provider()
     if provider == "openrouter":
         headers["HTTP-Referer"] = "https://github.com/anomalyco/opencode"
         headers["X-Title"] = "MARK XL"
@@ -286,6 +300,15 @@ def ensure_ollama_model(model: str) -> str:
     normalized = model.strip().lower()
     if any(m.strip().lower() == normalized for m in available):
         return model
+
+    # Never pull the same missing model twice in one process — several
+    # subsystems call this concurrently during startup.
+    global _PULLED_MODELS
+    if normalized in _PULLED_MODELS:
+        raise RuntimeError(
+            f"Ollama model '{model}' is unavailable (pull already attempted this session)."
+        )
+    _PULLED_MODELS.add(normalized)
 
     # If the configured model is missing, try to pull it automatically.
     print(f"[LLM] Model '{model}' not found in Ollama. Pulling it now…")

@@ -48,7 +48,8 @@ class TestBrowserUseAgent:
         assert info is not None
         assert "client" in info
         assert "model" in info
-        assert info["model"] == "llama-3.3-70b-instruct"
+        # NIM requires the full model id (with namespace prefix) in API calls.
+        assert info["model"] == cfg["llm_model"]
 
     def test_build_llm_client_fallback(self):
         """Unknown provider -> fallback to ChatOpenAI."""

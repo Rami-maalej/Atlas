@@ -62,12 +62,23 @@ def _build_llm_client() -> dict | None:
     provider = cfg.get("llm_provider", "nvidia-nim")
     llm_url = cfg.get("llm_url", "http://localhost:11434")
     llm_model = cfg.get("llm_model", "llama3.2")
-    api_key = cfg.get("llm_api_key", "not-needed")
+    key_field = ""
+    try:
+        from core.llm_provider_detector import get_provider
+        p = get_provider(provider.replace("-", "_"))
+        key_field = (p or {}).get("key_field", "")
+    except Exception:
+        pass
+    api_key = (cfg.get(key_field) or "").strip() if key_field else ""
+    if not api_key:
+        api_key = (cfg.get("llm_api_key") or "not-needed").strip()
 
     base = llm_url.rstrip("/") + "/v1"
 
     if provider == "nvidia_nim":
-        model = llm_model.replace("nvidia/", "").replace("meta/", "")
+        # NIM requires the FULL model id (e.g. nvidia/nemotron-...).
+        # Stripping the prefix made every chat call return 404.
+        model = llm_model
         client = _make_chat_openai(model, api_key, base)
         if client is None:
             return None

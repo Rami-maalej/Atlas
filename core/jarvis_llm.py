@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import logging
 import threading
 from typing import Any
@@ -74,8 +75,7 @@ def _fast_general_answer(self, user_text: str) -> None:
             history = list(self._conversation[:-1])
         answer = ask_general(user_text, history=history)
         if answer:
-            self.ui.write_log_instant(f"Atlantis: {answer}")
-            self.speak(answer)
+            _speak_and_show(self, answer)
             assistant_msg = {"role": "assistant", "content": answer}
             with self._conv_lock:
                 self._conversation.append(assistant_msg)
@@ -122,15 +122,39 @@ def _offline_identity_scope_reply(user_text: str) -> str:
     )
 
 
+def _speak_and_show(self, text: str) -> None:
+    """Real assistants reveal text when speech starts (play worker).
+    Fake/test assistants without a TTS queue need the direct write."""
+    self.speak(text)
+    if not hasattr(self, "_tts_queue"):
+        self.ui.write_log_instant(f"Atlantis: {text}")
+
+
+def _humanize_tool_result(result: str) -> str:
+    """Turn terse tool output into a natural spoken reply."""
+    s = str(result).strip()
+    m = re.fullmatch(r"Done:\s*([\w-]+)\.", s)
+    if m:
+        return {"volume_up": "Volume's up.", "volume_down": "Volume's down.",
+                "volume_mute": "Muted.", "volume_mute_toggle": "Toggled mute.",
+                "brightness_up": "Brightness up.", "brightness_down": "Brightness down.",
+                "toggle_mute": "Microphone toggled."}.get(
+                    m.group(1), f"Done — {m.group(1).replace('_', ' ')}.")
+    return s
+
+
 def _llm_unavailable_reply(short: str) -> str:
-    """Describe a model-provider failure without confusing it with refusal."""
+    """Describe a model-provider failure like a person would — never raw errors."""
+    s = short.lower()
     hint = _llm_error_hint(short)
+    if "503" in s or "service unavailable" in s:
+        return "The AI service is busy right now. Give me a moment, then ask me again."
     if hint:
         return f"I could not reach the configured AI provider. {hint}"
     return (
-        "I could not reach the configured AI provider, so I cannot answer "
-        "this request yet. Open Settings → PROVIDER, verify the selected "
-        "provider and model, then try again."
+        "I could not reach the configured AI provider right now. "
+        "Give me a second and try again — if it keeps happening, "
+        "check the provider settings."
     )
 
 
@@ -173,8 +197,7 @@ def _process_message(self, user_text: str) -> None:
     # provider, a local model server, or the network is being repaired.
     offline_reply = _offline_identity_scope_reply(user_text)
     if offline_reply:
-        self.ui.write_log_instant(f"Atlantis: {offline_reply}")
-        self.speak(offline_reply)
+        _speak_and_show(self, offline_reply)
         assistant_msg = {"role": "assistant", "content": offline_reply}
         with self._conv_lock:
             self._conversation.append(assistant_msg)
@@ -210,8 +233,8 @@ def _process_message(self, user_text: str) -> None:
             # Silent tools (save_memory) — don't speak, don't store
             return
         if result:
-            self.speak(result)
-            self.ui.write_log_instant(f"Atlantis: {result}")
+            spoken = _humanize_tool_result(result)
+            _speak_and_show(self, spoken)
         assistant_msg = {"role": "assistant", "content": result or ""}
         with self._conv_lock:
             self._conversation.append(assistant_msg)
@@ -310,24 +333,20 @@ def _process_message(self, user_text: str) -> None:
             for event in call_llm_stream(messages, _tools, model_override=override):
                 if event["type"] == "sentence":
                     # ── Overlap TTS with LLM generation ─────────────────
-                    # Queue this sentence immediately; the TTS worker
-                    # synthesises it while the LLM is still generating
-                    # the next one. Write to log at the same time.
+                    # Queue this sentence immediately; the synth worker
+                    # prepares it while the LLM generates the next one,
+                    # and the play worker reveals the text as it speaks.
                     _streamed.append(event["text"])
-                    self.speak(event["text"])
-                    if len(_streamed) == 1:
-                        self.ui.write_log_instant(f"Atlantis: {event['text']}")
-                    else:
-                        self.ui.write_log_instant(event["text"])
+                    _speak_and_show(self, event["text"])
                 elif event["type"] == "done":
                     final_content    = event["content"]
                     final_tool_calls = event["tool_calls"]
-        except RuntimeError as e:
-            short = str(e)[:120]
-            self.ui.write_log(f"ERR: LLM — {short}")
+        except Exception as e:
+            # Any provider/network/SDK failure becomes one calm, human reply —
+            # no tracebacks, URLs, or status codes in the chat or out loud.
+            short = str(e)[:160]
             reply = _llm_unavailable_reply(short)
-            self.ui.write_log_instant(f"Atlantis: {reply}")
-            self.speak(reply)
+            _speak_and_show(self, reply)
             fallback = {"role": "assistant", "content": reply}
             with self._conv_lock:
                 self._conversation.append(fallback)
@@ -340,7 +359,7 @@ def _process_message(self, user_text: str) -> None:
         if final_tool_calls and _round == 0 and _is_smalltalk(user_text):
             final_tool_calls = []
             if not final_content:
-                final_content = "Hey. What's on your mind?"
+                final_content = "At your service, sir. What do you need?"
 
         # ── No tool calls: pure conversational reply ─────────────────────
         if not final_tool_calls:

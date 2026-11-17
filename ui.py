@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import json
 import math
 import os
@@ -169,6 +170,37 @@ _FONT = "Cantarell"
 _FONT_SZ = 14
 _FONT_SZ_SM = 12
 _FONT_SZ_XS = 11
+
+
+def format_math_text(text: str) -> str:
+    """Turn model output with LaTeX into plain, readable chat text."""
+    if not text or "\\" not in text and "$" not in text:
+        return text
+    s = text
+    # Strip math delimiters and layout-only commands
+    s = s.replace("\\[", "").replace("\\]", "").replace("\\(", "").replace("\\)", "")
+    s = re.sub(r"\\(?:displaystyle|textstyle|left|right|quad|qquad|\,|\;|\!|\:)", " ", s)
+    # Fractions (repeat for nesting): \frac{a}{b} → a/b
+    for _ in range(4):
+        new = re.sub(r"\\frac\{\s*([^{}]+?)\s*\}\{\s*([^{}]+?)\s*\}", r"\1/\2", s)
+        if new == s:
+            break
+        s = new
+    # Common symbols
+    for cmd, sym in (
+        ("times", "×"), ("div", "÷"), ("cdot", "·"), ("pm", "±"),
+        ("ge", "≥"), ("le", "≤"), ("ne", "≠"), ("approx", "≈"),
+        ("infty", "∞"), ("pi", "π"), ("circ", "°"), ("sqrt", "√"),
+    ):
+        s = s.replace(f"\\{cmd}", sym)
+    # Subscripts / superscripts → readable parenthesised form
+    s = re.sub(r"_\{([^{}]+)\}", r"(\1)", s)
+    s = re.sub(r"\^\{([^{}]+)\}", r"^(\1)", s)
+    # Remove any leftover unknown LaTeX commands but keep their text
+    s = re.sub(r"\\([a-zA-Z]+)", r"\1", s)
+    s = s.replace("{", "").replace("}", "")
+    s = re.sub(r"[ \t]{2,}", " ", s).strip()
+    return s or text
 
 
 def qcol(h: str, a: int = 255) -> QColor:
@@ -1006,7 +1038,7 @@ class ChatWidget(QWidget):
         b_lay.setContentsMargins(10, 7, 10, 7)
         b_lay.setSpacing(3)
 
-        lbl = QLabel(text)
+        lbl = QLabel(format_math_text(text))
         lbl.setWordWrap(True)
         lbl.setFont(QFont(_FONT, _FONT_SZ_SM))
         lbl.setTextInteractionFlags(
@@ -1520,8 +1552,8 @@ class SetupOverlay(QWidget):
         self._voice_lbl.setStyleSheet(f"color: {C.TEXT_MED}; background: transparent;")
         voice_row.addWidget(self._voice_lbl)
 
-        self._tts_voice_input = _input("en-US-GuyNeural")
-        self._tts_voice_input.setText(_init.get("tts_voice", "en-US-GuyNeural"))
+        self._tts_voice_input = _input("en-US-AvaNeural")
+        self._tts_voice_input.setText(_init.get("tts_voice", "en-US-AvaNeural"))
         voice_row.addWidget(self._tts_voice_input)
 
         # Kokoro: dropdown with predefined voices (hidden unless Kokoro selected)
@@ -1653,7 +1685,7 @@ class SetupOverlay(QWidget):
             self._voice_lbl.setText("Voice:")
             if hasattr(self, "_tts_voice_input"):
                 self._tts_voice_input.setPlaceholderText(
-                    "en-US-GuyNeural  /  en-GB-RyanNeural  /  tr-TR-AhmetNeural  …"
+                    "en-US-AvaNeural  /  en-GB-SoniaNeural  /  tr-TR-AhmetNeural  …"
                 )
 
         if hasattr(self, "_kokoro_speed_widget"):
@@ -1715,7 +1747,7 @@ class SetupOverlay(QWidget):
             tts_voice = self._kokoro_combo.currentData() or "af_heart"
             tts_speed = self._kokoro_speed_combo.currentData() or "1.2"
         else:
-            tts_voice = self._tts_voice_input.text().strip() or "en-US-GuyNeural"
+            tts_voice = self._tts_voice_input.text().strip() or "en-US-AvaNeural"
             tts_speed = "1.0"
         
         cfg = dict(self._init)
@@ -3474,7 +3506,9 @@ class MainWindow(QMainWindow):
         from core.provider_overlay import ProviderOverlay
         ov = ProviderOverlay(self.centralWidget(), initial=current)
         cw = self.centralWidget()
-        ow, oh = min(cw.width() - 20, 640), min(cw.height() - 20, 520)
+        ow = min(cw.width() - 40, 900)
+        oh = min(cw.height() - 40, 820)
+        ov.setMinimumSize(640, 560)
         ov.setGeometry(
             (cw.width()  - ow) // 2,
             (cw.height() - oh) // 2,
@@ -3540,6 +3574,13 @@ class MainWindow(QMainWindow):
             self._overlay_prov.hide()
             self._overlay_prov = None
             
+        # Force every module caching config to re-read the file — otherwise
+        # a provider switch leaves the old key/provider active for up to 30s.
+        try:
+            from core.llm_client import invalidate_config_cache
+            invalidate_config_cache()
+        except Exception:
+            pass
         self._log.append_log("SYS: Providers updated.")
         if self._on_reconfigure_cb:
             self._on_reconfigure_cb(current)

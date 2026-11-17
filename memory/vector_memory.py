@@ -111,8 +111,9 @@ def _embed(text: str) -> list[float]:
         with _embed_lock:
             cnt = _embed_failures.get(failure_key, 0) + 1
             _embed_failures[failure_key] = cnt
-        if failure_key not in _embed_warned:
-            print(f"[VectorMemory] Embedding failed ({embed_url}): {e} (attempt {cnt}/{_EMBED_DISABLE_AFTER})")
+        if failure_key not in _embed_warned and cnt >= _EMBED_DISABLE_AFTER:
+            # Only warn once, after all retries failed — no noisy startup errors.
+            print(f"[VectorMemory] Embedding unavailable — running without semantic memory.")
             _embed_warned.add(failure_key)
         return []
 

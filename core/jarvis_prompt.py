@@ -27,13 +27,11 @@ def _load_system_prompt() -> str:
         _SYSTEM_PROMPT_CACHE = PROMPT_PATH.read_text(encoding="utf-8")
     except Exception:
         _SYSTEM_PROMPT_CACHE = (
-            "You are Atlantis, Rami Maalej's AI assistant. Talk like a real person: "
-            "warm, direct, dry wit, no corporate filler. Match the length of your "
-            "reply to the moment — one line for status, a few sentences for chat. "
-            "Vary your wording, never repeat the same opener or closer, and ask at "
-            "most one natural follow-up question when it helps. You support both "
-            "executing computer tasks via tools and friendly conversation. "
-            "Always answer in the user's language."
+            "You are ATLANTIS — Rami's aide in the mould of Jarvis from Iron Man. "
+            "Calm, precise, dry wit. Address him as 'sir' sparingly. Brief complete "
+            "sentences; one or two lines for routine matters. No filler, no "
+            "exclamation marks, no emoji. State results first. Never claim an action "
+            "succeeded without a confirmed tool result. Always answer in the user's language."
         )
     return _SYSTEM_PROMPT_CACHE
 
@@ -80,10 +78,12 @@ def _build_system_prompt(self, user_text: str = "") -> str:
     cur_min = now.hour * 60 + now.minute
     if cur_min != _time_ctx_cache_min:
         _time_ctx_cache = (
-            f"[CRITICAL: CURRENT DATE & TIME]\n"
+            f"[CRITICAL: CURRENT DATE & TIME — USE THESE VALUES, NEVER YOUR TRAINING DATA]\n"
             f"The current year is {now.year}. Today is: {now.strftime('%A, %B %d, %Y')}\n"
-            f"Current time: {now.strftime('%I:%M %p')}\n"
-            f"IMPORTANT: Ignore any internal training data suggesting a previous year. It is {now.year}."
+            f"Current time: {now.strftime('%I:%M %p')} (local)\n"
+            f"For ANY question about today's date, the time, the year, or the day of the week, "
+            f"answer using ONLY the values above — never a year from training data. "
+            f"It is {now.year}. Any other year is wrong."
         )
         _time_ctx_cache_min = cur_min
     time_ctx = _time_ctx_cache

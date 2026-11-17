@@ -7,6 +7,14 @@
       "due": "",
       "done": false,
       "created": "2026-06-13T17:31:37.180793"
+    },
+    {
+      "id": "task-1794941454172",
+      "title": "Jarvis, add a task to buy milk",
+      "priority": "normal",
+      "due": "",
+      "done": false,
+      "created": "2026-11-17T19:50:54.172059"
     }
   ],
   "transactions": [

@@ -137,7 +137,18 @@ class ProviderOverlay(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll.setStyleSheet("background: transparent; border: none;")
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setStyleSheet(f"""
+            QScrollArea {{ background: transparent; border: none; }}
+            QScrollBar:vertical {{
+                background: transparent; width: 8px; margin: 0;
+            }}
+            QScrollBar::handle:vertical {{
+                background: {C.TEXT_DIM}; border-radius: 4px; min-height: 30px;
+            }}
+            QScrollBar::handle:vertical:hover {{ background: {C.ACC}; }}
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
+        """)
         inner = QWidget()
         inner.setStyleSheet("background: transparent;")
         grid = QGridLayout(inner)
@@ -162,6 +173,8 @@ class ProviderOverlay(QWidget):
         self._status_lbl = QLabel("Detecting providers…")
         self._status_lbl.setFont(QFont("Courier New", 8))
         self._status_lbl.setStyleSheet(f"color: {C.TEXT_MED}; background: transparent; border: none;")
+        self._status_lbl.setFixedHeight(18)
+        layout.addSpacing(4)
         layout.addWidget(self._status_lbl)
 
         # ── Footer ────────────────────────────────────────────────────────
@@ -322,8 +335,9 @@ class ProviderOverlay(QWidget):
         lay.addLayout(model_row)
         # Pre-fill with curated defaults so the combo is never empty —
         # even when the provider server is unreachable at startup.
+        from core.llm_provider_detector import is_chat_model
         cur_model = (self._init.get("llm_model", "").strip()
-                     if cur_provider == pid else "")
+                     if cur_provider == pid and is_chat_model(self._init.get("llm_model", "")) else "")
         for m in DEFAULT_MODELS.get(pid, []):
             if m:
                 combo.addItem(m, userData=m)
@@ -434,9 +448,12 @@ class ProviderOverlay(QWidget):
                 seen.add(m)
                 combo.addItem(m, userData=m)
         is_selected = (self._selected_pid == pid)
-        want = self._selected_model if is_selected else ""
+        from core.llm_provider_detector import is_chat_model
+        want = self._selected_model if (is_selected and is_chat_model(self._selected_model)) else ""
         if not want:
             want = self._discovery.get(pid, {}).get("default") or ""
+        if want and not is_chat_model(want):
+            want = ""
         if not want and is_selected:
             # Only the active provider may inherit the configured model —
             # reusing it for another provider would select a model that

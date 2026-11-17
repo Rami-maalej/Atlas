@@ -2,7 +2,7 @@
   "apps": [],
   "usage": {
     "youtube": [
-      "2026-08-12"
+      "2026-11-16"
     ],
     "whatsapp": [
       "2026-11-11"
@@ -24,6 +24,15 @@
     ],
     "display settings": [
       "2026-11-11"
+    ],
+    "launch firefox": [
+      "2026-11-17"
+    ],
+    "trading view": [
+      "2026-11-17"
+    ],
+    "xauusd chart in tradingview": [
+      "2026-11-17"
     ]
   }
 }

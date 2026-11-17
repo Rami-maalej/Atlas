@@ -1060,6 +1060,9 @@ _INTENTS: list[dict[str, Any]] = [
             r"what\s+day\s+is\s+(today|it)",
             r"what(\'?s|\s+is)\s+the\s+date\s*$",
             r"tell\s+(me\s+)?(the\s+)?(date|day|time)",
+            r"tell\s+me\s+the\s+(current\s+)?(clock\s+)?(time|date|day)",
+            r"^(what\s+is\s+)?the\s+(current\s+)?(clock\s+)?(time|date)\b",
+            r"(current|local|exact)\s+(clock\s+)?(time|date|day)\b",
             r"what(\'?s|\s+is)\s+(it\s+)?(right\s+)?now",
             r"what\s+day\s+of\s+the\s+week",
             r"what\s+(time|day)\s+is\s+it",
@@ -1171,7 +1174,7 @@ _INTENTS: list[dict[str, Any]] = [
         "name": "maps",
         "subsystem": "system",
         "patterns": [
-            r"^(where\s+is\s|find\s+|locate\s+|search\s+for\s+)(.+)",
+            r"^(where\s+is\s|find\s+|locate\s+|search\s+for\s+)(?!my\s+(?:podcast|music|playlist|song|file|notes?|tasks?|email|clipboard)\b)(.+)",
             r"^(how\s+far|distance)\s+(.+)",
             r"(coordinates?|coords?|lat\s*(?:/|and|,)\s*lon)\s+(.+)",
             r"what('?s| is)\s+the\s+distance\s+between\s+(.+)\s+and\s+(.+)",
@@ -2344,6 +2347,25 @@ class IntentRouter:
                     params["minutes"] = val * 60
                 else:
                     params["minutes"] = val
+            else:
+                # "set an alarm for 6:30 AM" — convert the clock time into
+                # minutes from now so it doesn't silently default to 10.
+                clock = re.search(r"(\d{1,2}):(\d{2})\s*(am|pm)?", text)
+                if clock:
+                    from datetime import datetime as _dt
+                    hr, mn = int(clock.group(1)), int(clock.group(2))
+                    ap = (clock.group(3) or "").lower()
+                    if ap == "pm" and hr < 12:
+                        hr += 12
+                    elif ap == "am" and hr == 12:
+                        hr = 0
+                    now = _dt.now()
+                    target = now.replace(hour=hr, minute=mn, second=0, microsecond=0)
+                    if target <= now:
+                        from datetime import timedelta as _td
+                        target += _td(days=1)
+                    params["minutes"] = max(1, round((target - now).total_seconds() / 60))
+                    params["at"] = target.strftime("%H:%M")
             if re.search(r"remind\s+me\s+in", text):
                 params["mode"] = "timer"
                 msg_match = re.search(r"(?:to|about|that|of)\s+(.+)$", text)
@@ -2588,9 +2610,15 @@ class IntentRouter:
             if match and len(match.groups()) >= 3:
                 params["symbol"] = match.group(3).strip().upper()
         elif intent["name"] == "translator":
-            if match and len(match.groups()) >= 4:
-                params["text"] = match.group(2).strip()
-                params["target_lang"] = match.group(4).strip()
+            # Patterns have no capture groups — parse directly from the text.
+            m = re.search(
+                r"(?:translate|traduis|comment\s+dit\s*on|traduction\s+de)\s+"
+                r"['\"]?(.+?)['\"]?\s+(?:into?|to|en|vers)\s+(\w+)",
+                text, re.IGNORECASE,
+            )
+            if m:
+                params["text"] = m.group(1).strip().strip("'\"")
+                params["target_lang"] = m.group(2).strip().lower()
         elif intent["name"] == "media_downloader":
             if match and len(match.groups()) >= 5:
                 params["url"] = match.group(5).strip()

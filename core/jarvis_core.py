@@ -22,6 +22,7 @@ from core.jarvis_stt import _listen_vosk as _lv
 from core.jarvis_stt import _listen_whisper as _lw
 from core.jarvis_stt import _text_command_loop as _tcl
 from core.jarvis_tts import _tts_worker as _tw
+from core.jarvis_tts import _tts_synth_worker
 from core.jarvis_tts import set_speaking, speak
 from core.llm_client import ensure_ollama_running, get_llm_provider, warmup_model
 from core.scheduler import get_scheduler
@@ -50,15 +51,9 @@ class JarvisLocal:
         self._speaking_lock   = threading.Lock()
         self._text_queue:     queue.Queue = queue.Queue()
         self._tts_queue:      queue.Queue = queue.Queue()
+        self._tts_play_queue: queue.Queue = queue.Queue()
         self._conversation:   list[dict]  = []
         self._conv_lock = threading.Lock()
-        # The Obsidian vault is the long-term home: pull in any facts edited
-        # by hand since the last run so the assistant starts up informed.
-        try:
-            from memory.memory_manager import import_vault_facts
-            import_vault_facts()
-        except Exception:
-            pass
         try:
             from memory.vector_memory import recent_conversations
             for turn in recent_conversations(limit=5):
@@ -179,6 +174,19 @@ class JarvisLocal:
             # The loading screen shows real progress, so every stage reports
             # into the shared registry as it advances.
             from core.startup_progress import PROGRESS
+            # Dynamic welcome — name from profile, fallback to "sir".
+            try:
+                import json as _json
+                from pathlib import Path as _Path
+                _profile = _json.loads(
+                    (_Path(__file__).resolve().parent.parent / "config" / "user_profile.json")
+                    .read_text(encoding="utf-8")
+                )
+                _who = str(_profile.get("name", "")).strip().split()[0] or "sir"
+            except Exception:
+                _who = "sir"
+            print(f"\n  Welcome {_who} — ATLANTIS is starting up…\n", flush=True)
+            self.ui.write_log(f"SYS: Welcome {_who}.")
             PROGRESS.add_many([
                 ("config",   "Configuration",       0.5),
                 ("provider", "AI provider",         1.5),
@@ -268,7 +276,7 @@ class JarvisLocal:
                     PROGRESS.complete()
                     self.ui.set_startup_status("● All systems ready.")
                     self.ui.hide_startup_panel()
-                    self.speak("Atlantis fully online.")
+                    self.speak(f"Welcome {_who}. I'm online and ready.")
                 except Exception as e:
                     traceback.print_exc()
                     self.ui.write_log(f"ERR: TTS — {e}")
@@ -345,6 +353,7 @@ class JarvisLocal:
                     except Exception:
                         pass
             threading.Thread(target=_init_location, daemon=True).start()
+            threading.Thread(target=self._tts_synth_worker,  daemon=True).start()
             threading.Thread(target=self._tts_worker,        daemon=True).start()
             threading.Thread(target=self._text_command_loop,  daemon=True).start()
             # STT loop — blocks this thread forever
@@ -359,6 +368,9 @@ class JarvisLocal:
     # ------------------------------------------------------------------
     # Thread entry points (delegated from core.jarvis_*)
     # ------------------------------------------------------------------
+    def _tts_synth_worker(self) -> None:
+        _tts_synth_worker(self)
+
     def _tts_worker(self) -> None:
         _tw(self)
 

@@ -132,5 +132,5 @@ def ask_general(question: str, history: list[dict] | None = None) -> str | None:
             answer = answer[:500].rsplit(".", 1)[0] + "."
         return answer or None
     except Exception as e:
-        logger.warning("Fast general answer failed: %s", e)
+        logger.debug("Fast general answer unavailable — falling back to main model")
         return None

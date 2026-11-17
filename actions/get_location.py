@@ -304,7 +304,6 @@ def get_location(
                     "source":    "memory",
                 }
                 source = "saved memory"
-                _log(f"Using saved city from memory: {saved_city}", player)
         except Exception as exc:
             print(f"[Location] Memory check failed: {exc}")
 

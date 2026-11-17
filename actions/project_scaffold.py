@@ -70,6 +70,13 @@ def _open_editor(project_dir: Path) -> bool:
 
 
 def _run_opencode(project_dir: Path, role: dict, speak: Callable | None = None) -> str:
+    # Automated/offscreen runs (pytest, CI) must never spawn interactive
+    # opencode sessions — they stay alive forever and eat all RAM/CPU.
+    if (
+        os.environ.get("QT_QPA_PLATFORM") == "offscreen"
+        or os.environ.get("ATLANTIS_HEADLESS") == "1"
+    ):
+        return f"[{role['label']}] session skipped (headless run)."
     opencode_cmd = "opencode"
     try:
         subprocess.run([opencode_cmd, "--version"], capture_output=True, timeout=5)

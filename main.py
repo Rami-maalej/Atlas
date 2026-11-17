@@ -105,6 +105,22 @@ def main() -> None:
         ("tts",      "Voice synthesis",     2.5),
         ("services", "Background services", 1.0),
     ])
+    PROGRESS.start("config", "waking up…")
+
+    # Heartbeat: advance the bar while pre-boot work (dependency checks,
+    # model pulls) blocks the runner thread. Stops when real stages report.
+    def _heartbeat():
+        import time as _t
+        step = 0.0
+        while not PROGRESS.snapshot()["finished"]:
+            with PROGRESS._lock:
+                cfg = PROGRESS._stages.get("config")
+                if cfg and cfg.state == "running" and cfg.progress < 0.9:
+                    step = min(0.9, step + 0.045)
+                    cfg.progress = step
+                    cfg.detail = "starting up…"
+            _t.sleep(0.25)
+    threading.Thread(target=_heartbeat, daemon=True).start()
 
     ui = JarvisUI("face.png")
 
@@ -116,7 +132,9 @@ def main() -> None:
         # 2. Pre-import torch in background — only needed for Kokoro TTS /
         #    Whisper CUDA detection; skipped for cloud LLM + EdgeTTS to keep
         #    startup fast.
-        if cfg.get("tts_engine", "edgetts").lower() == "kokoro" or cfg.get("stt_engine", "whisper").lower() == "whisper":
+        # Only Kokoro TTS needs torch. faster-whisper uses CTranslate2 —
+        # preloading torch for it wasted ~1-2 GB RAM on every launch.
+        if cfg.get("tts_engine", "edgetts").lower() == "kokoro":
             def _preload_torch():
                 try:
                     import torch  # noqa: F401  (side-effect import only)

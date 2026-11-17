@@ -35,6 +35,32 @@ logger = logging.getLogger("llm_provider_detector")
 #   key_env   : optional env var name to fall back to
 #   protocol  : "ollama" | "openai"
 #   discover  : "models" (query /models) | "local-only" (only when reachable)
+# Code-completion / embedding models must never be picked as the assistant's
+# chat model — they are slow and cannot hold a conversation.
+_NON_CHAT_MODEL_MARKERS = (
+    "starcoder", "codellama", "codegemma", "qwen2.5-coder", "deepseek-coder",
+    "embed", "nomic-embed", "rerank", "moderation", "safety", "guard",
+    "detector", "calibration", "nvclip", "clip",
+)
+
+# Models that are listed by /models but consistently time out or are retired.
+_DEAD_MODELS = {
+    "meta/llama-3.1-8b-instruct", "meta/llama-3.3-70b-instruct",
+    "deepseek-ai/deepseek-v4.1-flash",
+    "google/gemma-3-4b-it", "google/gemma-3-12b-it",
+    # Groq: retired OpenAI-compatible IDs still in old curated lists
+    "llama-3.3-70b-versatile", "llama-3.1-8b-instant",
+    "mixtral-8x7b-32768", "deepseek-r1-distill-llama-70b",
+}
+
+
+def is_chat_model(name: str) -> bool:
+    n = name.lower()
+    if n in _DEAD_MODELS:
+        return False
+    return not any(marker in n for marker in _NON_CHAT_MODEL_MARKERS)
+
+
 PROVIDERS: list[dict[str, Any]] = [
     {
         "id":        "ollama",
@@ -114,8 +140,14 @@ _PROVIDER_BY_ID: dict[str, dict[str, Any]] = {p["id"]: p for p in PROVIDERS}
 
 DEFAULT_MODELS: dict[str, list[str]] = {
     "ollama":     ["qwen3:8b", "qwen3:4b", "qwen2.5:7b", "llama3.2:3b", "deepseek-r1:8b"],
-    "groq":       ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768", "deepseek-r1-distill-llama-70b"],
-    "nvidia_nim": ["meta/llama-3.1-8b-instruct", "meta/llama-3.3-70b-instruct", "mistralai/mixtral-8x7b-instruct-v0.1", "qwen/qwen3-32b"],
+    # Verified live on 2026-11-16 (old llama-3.3-70b-versatile etc. are gone).
+    "groq":       ["openai/gpt-oss-20b", "qwen/qwen3.8-27b", "allam-2-7b", "openai/gpt-oss-120b"],
+    # Verified live on 2026-11-16 (the old meta/llama* IDs return 410 Gone).
+    "nvidia_nim": [
+        "nvidia/nemotron-3.5-lightning-30b-a3b", "stepfun-ai/step-5-preview",
+        "mistralai/mistral-large-4-1t-a52b", "poolside/laguna-xs-2.1",
+        "google/gemma-4-31b-it", "minimaxai/minimax-m3.1-flash",
+    ],
     "openrouter": ["openai/gpt-4.1-mini", "anthropic/claude-sonnet-4", "google/gemini-2.5-flash", "meta-llama/llama-3.3-70b-instruct"],
     "gemini":     ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash", "gemini-2.5-flash-nano"],
     "openai":     ["gpt-4.1-mini", "gpt-4.1", "gpt-5-mini", "llama3.2"],
@@ -181,7 +213,7 @@ def list_models(pid: str, cfg: dict | None = None, timeout: float = _LIST_TIMEOU
                 if name:
                     names.append(name)
             if names:
-                return sorted(set(names))
+                return sorted(n for n in set(names) if is_chat_model(n))
         else:
             resp = requests.get(f"{url.rstrip('/')}/models", headers=headers, timeout=timeout)
             resp.raise_for_status()
@@ -192,7 +224,7 @@ def list_models(pid: str, cfg: dict | None = None, timeout: float = _LIST_TIMEOU
                 if mid and item.get("object") != "model_type" or True:
                     names.append(mid)
             if names:
-                return sorted(set(n for n in names if n))
+                return sorted(n for n in set(names) if n and is_chat_model(n))
     except Exception as e:
         logger.debug("Model discovery failed for %s: %s", pid, e)
     # Provider unreachable or no key — fall back to curated defaults

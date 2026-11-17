@@ -111,28 +111,51 @@ class EdgeTTSEngine:
     Reuses a single event loop for all requests to avoid per-call overhead.
     """
 
-    def __init__(self, voice: str = "en-US-GuyNeural"):
+    def __init__(self, voice: str = "en-US-AvaNeural"):
         self.voice = voice
         self._loop: asyncio.AbstractEventLoop | None = None
         self._lock = threading.Lock()
+        # Import eagerly (in the background TTS-init thread) so the first
+        # real utterance doesn't pay the ~300ms module-import cost.
+        try:
+            import edge_tts  # noqa: F401
+        except Exception:
+            pass
+        threading.Thread(target=self._warmup, daemon=True).start()
+
+    def _warmup(self) -> None:
+        """Prime the websocket/TLS path with a tiny throwaway synthesis."""
+        try:
+            loop = asyncio.new_event_loop()
+            loop.run_until_complete(self._synth(". "))
+            loop.close()
+        except Exception:
+            pass
 
     def _get_loop(self) -> asyncio.AbstractEventLoop:
         if self._loop is None or self._loop.is_closed():
             self._loop = asyncio.new_event_loop()
         return self._loop
 
-    def speak(self, text: str) -> None:
+    def prepare(self, text: str) -> bytes:
+        """Synthesize to audio bytes WITHOUT playing — lets synthesis run
+        ahead of playback so the next sentence is ready before it's spoken."""
         with self._lock:
             loop = self._get_loop()
             try:
-                audio_bytes = loop.run_until_complete(self._synth(text))
+                return loop.run_until_complete(self._synth(text))
             except RuntimeError:
                 loop.close()
                 self._loop = asyncio.new_event_loop()
                 loop = self._loop
-                audio_bytes = loop.run_until_complete(self._synth(text))
+                return loop.run_until_complete(self._synth(text))
+
+    def play_prepared(self, audio_bytes: bytes) -> None:
         if audio_bytes:
             _play_audio_bytes(audio_bytes)
+
+    def speak(self, text: str) -> None:
+        self.play_prepared(self.prepare(text))
 
     async def _synth(self, text: str) -> bytes:
         import edge_tts
@@ -387,7 +410,7 @@ class ElevenLabsTTSEngine:
 LANG_TO_EDGETTS_VOICE = {
     "ar": "ar-SA-ZariyahNeural",
     "de": "de-DE-KatjaNeural",
-    "en": "en-US-GuyNeural",
+    "en": "en-US-AvaNeural",
     "es": "es-ES-ElviraNeural",
     "fa": "fa-IR-DilaraNeural",
     "fr": "fr-FR-DeniseNeural",
@@ -456,8 +479,10 @@ class TTSPlayer:
             if on_start:
                 on_start()
             self._engine.speak(text)
-        except Exception as e:
-            print(f"[TTS] Error: {e}")
+        except Exception:
+            if not getattr(self, "_warned_offline", False):
+                self._warned_offline = True
+                print("[TTS] Voice is offline right now — I'll keep chatting in text.")
         finally:
             with self._lock:
                 self._playing = False
@@ -527,6 +552,6 @@ def create_tts_player(config: dict) -> TTSPlayer:
         voice_id = config.get("tts_voice", "pNInz6obpgDQGcFmaJgB")
         engine   = ElevenLabsTTSEngine(api_key=api_key, voice_id=voice_id)
     else:   # edgetts (default)
-        voice  = config.get("tts_voice", "en-US-GuyNeural")
+        voice  = config.get("tts_voice", "en-US-AvaNeural")
         engine = EdgeTTSEngine(voice=voice)
     return TTSPlayer(engine, config=config)
