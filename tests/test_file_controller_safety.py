@@ -91,3 +91,25 @@ def test_recently_dated_question_bypasses_fast_general_path():
 
     assert not is_general_question("Who won the Nobel Prize in 2024?")
     assert is_general_question("What is photosynthesis?")
+
+def test_rename_rejects_traversal(monkeypatch, tmp_path):
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / "a.txt").write_text("x", encoding="utf-8")
+    monkeypatch.setattr(file_controller, "_resolve_path", lambda _raw: home)
+    monkeypatch.setattr(file_controller, "_is_safe_path", lambda p: home in p.parents or p == home)
+
+    result = file_controller.rename_file("home", "a.txt", "../../evil.txt")
+
+    assert "Invalid new name" in result
+    assert (home / "a.txt").exists()
+
+
+def test_download_rejects_non_http_scheme(monkeypatch, tmp_path):
+    called = []
+    monkeypatch.setattr(file_controller, "_resolve_path", lambda _raw: tmp_path)
+    monkeypatch.setattr(file_controller, "_is_safe_path", lambda _p: True)
+    result = file_controller.download("file:///etc/passwd", destination="downloads")
+
+    assert "http" in result.lower()
+    assert not called

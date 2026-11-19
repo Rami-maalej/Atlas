@@ -8,6 +8,9 @@ import requests
 from core.llm_client import resolve_llm_url
 from core.paths import base_dir as get_base_dir
 from core.paths import memory_path
+from memory import db_vector_store as _db
+
+_LOCAL_MODEL = None
 
 _OLLAMA_URL = "http://localhost:11434"
 
@@ -57,6 +60,7 @@ _EMBED_MODEL = "all-minilm:l6-v2"
 _embed_cache: dict[str, list[float]] = {}
 _embed_warned: set[str] = set()
 _embeddings_disabled: bool = False
+_embed_retry_after: float = 0.0
 _embed_failures: dict[str, int] = {}
 _embed_lock = threading.Lock()
 _EMBED_MAX_RETRIES = 3
@@ -64,11 +68,16 @@ _EMBED_RETRY_WAIT = 5.0
 _EMBED_DISABLE_AFTER = 5
 
 def _embed(text: str) -> list[float]:
-    global _embeddings_disabled
-    if _embeddings_disabled:
-        return []
+    global _embeddings_disabled, _embed_retry_after
+    import time as _time
 
     key = text[:1000]
+    if _embeddings_disabled and _time.monotonic() >= _embed_retry_after:
+        _embeddings_disabled = False
+        _embed_failures.clear()
+    if _embeddings_disabled:
+        return _local_embed(key)
+
     cached = _embed_cache.get(key)
     if cached:
         return cached
@@ -85,7 +94,8 @@ def _embed(text: str) -> list[float]:
                 print(f"[VectorMemory] Embedding disabled after {_EMBED_DISABLE_AFTER} failures.")
                 _embed_warned.add(failure_key)
             _embeddings_disabled = True
-            return []
+            _embed_retry_after = _time.monotonic() + 60.0
+            return _local_embed(key)
 
     try:
         resp = requests.post(embed_url, json=payload, timeout=3.0)
@@ -106,15 +116,36 @@ def _embed(text: str) -> list[float]:
         if failure_key not in _embed_warned:
             print(f"[VectorMemory] Embedding API error ({embed_url}): {e.response.status_code} (attempt {cnt}/{_EMBED_DISABLE_AFTER})")
             _embed_warned.add(failure_key)
-        return []
-    except Exception as e:
+        _embeddings_disabled = True
+        _embed_retry_after = _time.monotonic() + 60.0
+        return _local_embed(key)
+    except Exception:
         with _embed_lock:
             cnt = _embed_failures.get(failure_key, 0) + 1
             _embed_failures[failure_key] = cnt
         if failure_key not in _embed_warned and cnt >= _EMBED_DISABLE_AFTER:
             # Only warn once, after all retries failed — no noisy startup errors.
-            print(f"[VectorMemory] Embedding unavailable — running without semantic memory.")
+            print("[VectorMemory] Embedding unavailable — running without semantic memory.")
             _embed_warned.add(failure_key)
+        _embeddings_disabled = True
+        _embed_retry_after = _time.monotonic() + 60.0
+        return _local_embed(key)
+
+def _local_embed(text: str) -> list[float]:
+    """Fallback embedder that runs on CPU with no external service."""
+    global _LOCAL_MODEL
+    try:
+        from fastembed import TextEmbedding
+        if _LOCAL_MODEL is None:
+            _LOCAL_MODEL = TextEmbedding("sentence-transformers/all-MiniLM-L6-v2")
+        vector = list(next(iter(_LOCAL_MODEL.embed([text]))))
+        if vector and len(_embed_cache) > 512:
+            _embed_cache.clear()
+        if vector:
+            _embed_cache[text[:1000]] = vector
+        return vector
+    except Exception as e:
+        print(f"[VectorMemory] Local embedder failed: {e}")
         return []
 
 def _cosine_similarity(a: list[float], b: list[float]) -> float:
@@ -125,36 +156,21 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
         return 0.0
     return float(np.dot(a, b) / norm)
 
+_migrated = False
+
 def _load_store() -> dict:
-    global _store_cache, _store_mtime
-    if not VEC_PATH.exists():
-        return {"memories": [], "conversations": []}
-    try:
-        mtime = VEC_PATH.stat().st_mtime
-        if mtime == _store_mtime:
-            return _store_cache          # cache hit
-        data = json.loads(VEC_PATH.read_text(encoding="utf-8"))
-        _store_cache = data
-        _store_mtime = mtime
-        return _store_cache
-    except Exception:
-        return {"memories": [], "conversations": []}
+    global _store_cache, _migrated
+    if not _migrated:
+        _db.import_legacy_json()
+        _migrated = True
+    data = _db.load_all()
+    _store_cache = data
+    return _store_cache
 
 def _save_store(store: dict) -> None:
-    global _store_cache, _store_mtime
-    VEC_PATH.parent.mkdir(parents=True, exist_ok=True)
-    # Compact JSON: the store is ~1 MB; indent=2 cost ~36 ms of dumps per turn.
-    VEC_PATH.write_text(
-        json.dumps(store, separators=(",", ":"), ensure_ascii=False),
-        encoding="utf-8",
-    )
-    # Keep the in-process cache valid for OUR OWN write — invalidating here
-    # made the next prompt build re-parse the whole file (≈23 ms/turn).
+    global _store_cache
+    _db.replace_all(store)
     _store_cache = store
-    try:
-        _store_mtime = VEC_PATH.stat().st_mtime
-    except OSError:
-        _store_mtime = 0.0
 
 def store_memory(text: str, category: str = "general", source: str = "conversation") -> bool:
     emb = _embed(text)
@@ -249,6 +265,14 @@ def _search_memory_with_emb(query_emb: list[float], top_k: int = 5, threshold: f
         return []
     with _lock:
         store = _load_store()
+        hits = _db.knn("memories", query_emb, top_k)
+        if hits:
+            by_id = {str(m.get("id")): m for m in store.get("memories", [])}
+            return [
+                {"score": sim,
+                 **{k: v for k, v in by_id[i].items() if k != "embedding"}}
+                for i, sim in hits if i in by_id and sim >= threshold
+            ]
         scored = []
         for m in store.get("memories", []):
             if not m.get("embedding"):
@@ -265,6 +289,14 @@ def _search_conversation_with_emb(query_emb: list[float], top_k: int = 3, thresh
         return []
     with _lock:
         store = _load_store()
+        hits = _db.knn("conversations", query_emb, top_k)
+        if hits:
+            by_id = {str(c.get("id")): c for c in store.get("conversations", [])}
+            return [
+                {"score": sim,
+                 **{k: v for k, v in by_id[i].items() if k != "embedding"}}
+                for i, sim in hits if i in by_id and sim >= threshold
+            ]
         scored = []
         for c in store.get("conversations", []):
             if not c.get("embedding"):

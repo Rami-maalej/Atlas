@@ -160,6 +160,13 @@ def main() -> None:
         #    ~2 s of action-module imports don't delay first paint.
         from core.jarvis_core import JarvisLocal
         jarvis = JarvisLocal(ui)
+        for msg in list(jarvis._conversation):
+            role = msg.get("role")
+            content = str(msg.get("content", "")).strip()
+            if role == "user" and content:
+                ui.write_log(f"You: {content}")
+            elif role == "assistant" and content and not msg.get("tool_calls"):
+                ui.write_log(f"Atlantis: {content}")
         try:
             jarvis.run()
         except KeyboardInterrupt:

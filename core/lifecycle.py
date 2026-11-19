@@ -161,8 +161,14 @@ def stop_background(ui=None) -> None:
 def flush_memory() -> None:
     """Persist every memory store so the next launch remembers everything."""
     try:
-        from memory.vector_memory import _load_store, _save_store
-        _save_store(_load_store())
+        from core.chat_history import flush_chat_history
+        flush_chat_history()
+    except Exception as e:
+        logger.debug("chat history flush: %s", e)
+
+    try:
+        from memory.db_vector_store import checkpoint
+        checkpoint()
     except Exception as e:
         logger.debug("vector memory flush: %s", e)
 
@@ -231,11 +237,22 @@ def shutdown(ui=None, speak_text: str = "Goodbye.") -> None:
     except Exception:
         pass
 
-    try:
-        if ui is not None:
-            ui._win._quit_sig.emit()
-    except Exception as e:
-        logger.debug("quit signal: %s", e)
-        # Fall back to a hard exit when the Qt signal is unavailable.
-        os._exit(0)
+    if ui is not None:
+        sig = None
+        try:
+            win = getattr(ui, "_win", None)
+            sig = getattr(win, "_quit_sig", None) or getattr(ui, "_quit_sig", None)
+            if sig is not None:
+                sig.emit()
+        except Exception as e:
+            logger.debug("quit signal: %s", e)
+        if sig is None:
+            try:
+                from PyQt6.QtWidgets import QApplication
+
+                app = QApplication.instance()
+                if app is not None:
+                    app.quit()
+            except Exception as e:
+                logger.debug("Qt quit fallback: %s", e)
 

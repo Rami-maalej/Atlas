@@ -1334,7 +1334,7 @@ TOOL_DECLARATIONS = [
     },
     {
         "name": "type_safe_decide",
-        "description": "Fast typed decision using TypeSafe AI's Jev model: returns a typed answer (choice or yes/no) with calibrated confidence in ~100ms. Use for routing, classification, safety checks, urgency scoring — when a fast confident decision is needed instead of prose. Requires a TypeSafe API key.",
+        "description": "Fast local typed decision using the Laya decision model: returns a typed answer (choice or yes/no) with calibrated confidence in one forward pass. Use for routing, classification, safety checks, urgency scoring — when a fast confident decision is needed instead of prose. No API key required; the model runs on this machine.",
         "parameters": {
             "type": "OBJECT",
             "properties": {
@@ -1436,6 +1436,66 @@ TOOL_DECLARATIONS = [
                 "action": {"type": "STRING", "description": "largest (default) or disk_usage"},
                 "path":   {"type": "STRING", "description": "Directory to scan: home, downloads, desktop, documents (default: home)"},
                 "count":  {"type": "INTEGER", "description": "Number of files to list (default 10)"},
+            },
+            "required": []
+        }
+    },
+    {
+        "name": "forget_memory",
+        "description": "Forget something the assistant previously remembered. Use when the user says 'forget that' or asks you to erase a fact.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "what": {"type": "STRING", "description": "What to forget"}
+            },
+            "required": ["what"]
+        }
+    },
+    {
+        "name": "search_emails",
+        "description": "Search cached Gmail messages across all connected Google accounts using keywords or Gmail-style terms. Read-only.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "query": {"type": "STRING", "description": "Keywords or Gmail search syntax"},
+                "account": {"type": "STRING", "description": "Optional email address; omit to search all accounts"},
+                "limit": {"type": "INTEGER", "description": "Max results (default 20)"}
+            },
+            "required": ["query"]
+        }
+    },
+    {
+        "name": "get_email",
+        "description": "Read one email by message id from the local cache or Gmail. Returns headers and plain-text body. Read-only.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "id": {"type": "STRING", "description": "Gmail message id"},
+                "account": {"type": "STRING", "description": "Optional account email"}
+            },
+            "required": ["id"]
+        }
+    },
+    {
+        "name": "list_recent_emails",
+        "description": "List the most recent cached emails across connected Google accounts. Read-only.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "account": {"type": "STRING", "description": "Optional account email"},
+                "limit": {"type": "INTEGER", "description": "Max results (default 20)"}
+            },
+            "required": []
+        }
+    },
+    {
+        "name": "summarize_unread",
+        "description": "Give a short digest of unread cached emails across Google accounts. Read-only.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "account": {"type": "STRING", "description": "Optional account email"},
+                "limit": {"type": "INTEGER", "description": "Max items (default 20)"}
             },
             "required": []
         }

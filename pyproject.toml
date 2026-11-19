@@ -37,4 +37,7 @@ markers = [
     "qt: requires PyQt6 (runs offscreen)",
     "network: needs internet access",
     "slow: takes more than a few seconds",
+    "hardware: needs a real microphone or audio device",
+    "integration: needs external services or multiple processes",
+    "gui: PyQt6 widget tests (offscreen)",
 ]

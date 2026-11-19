@@ -1,0 +1,87 @@
+{
+  "greeting": {
+    "morning": [
+      "Good morning, {name}. What are we doing today?",
+      "Morning {name}. Ready when you are.",
+      "Hey {name}, morning. What's on your mind?"
+    ],
+    "afternoon": [
+      "Good afternoon, {name}. What can I do for you?",
+      "Afternoon {name}. What's up?",
+      "Hey {name}. What shall we get into?"
+    ],
+    "evening": [
+      "Good evening, {name}. Long day?",
+      "Evening {name}. I'm here — what do you need?",
+      "Hey {name}, evening. What can I help with?"
+    ]
+  },
+  "how_are_you": [
+    "I'm running fine, {name}. All systems green. How about you?",
+    "Never better. Ready to work whenever you are.",
+    "Good, thanks for asking. What's on your plate?"
+  ],
+  "thanks": [
+    "Anytime, {name}.",
+    "You're welcome. Just say the word.",
+    "No problem at all."
+  ],
+  "goodbye": [
+    "See you soon, {name}.",
+    "Alright, I'll be here if you need me.",
+    "Catch you later."
+  ],
+  "joke": [
+    "Why did the computer get cold? It forgot to close its windows.",
+    "I told a chemistry joke... no reaction.",
+    "A programmer walks into a bar. Orders a beer. Orders 999 more. Then says: oops, that was a hex."
+  ],
+  "start": [
+    "Sure, {action}...",
+    "On it — {action}.",
+    "Give me a second, {action}.",
+    "Right away, {action}.",
+    "Working on it: {action}."
+  ],
+  "success": [
+    "Done, {target} is ready.",
+    "All set. {target} is done.",
+    "Finished — {target} handled.",
+    "There you go, {target} is sorted.",
+    "Done. Anything else?"
+  ],
+  "error": [
+    "Hmm, that didn't work. Want me to try again?",
+    "That one didn't go through. Shall I give it another shot?",
+    "Something went wrong there. Try again?"
+  ],
+  "unknown": [
+    "Not sure I got that, can you say it differently?",
+    "I didn't catch the intention there. Mind rephrasing?",
+    "Hmm, I'm not following. Try saying it another way?"
+  ],
+  "confirm_risky": [
+    "Just to be sure — you want me to {action}? Say yes or no.",
+    "That will {action}. Confirm?",
+    "Before I {action}, are you certain? Yes or no."
+  ],
+  "confirm_yes": [
+    "Alright, doing it.",
+    "Confirmed. On it.",
+    "Got it — going ahead."
+  ],
+  "confirm_no": [
+    "No problem, I'll leave it alone.",
+    "Cancelled. Nothing changed.",
+    "Understood — skipping that."
+  ],
+  "interrupt": [
+    "Stopping.",
+    "Okay, stopping now.",
+    "Cancelled."
+  ],
+  "remember_name": [
+    "Got it, I'll remember that, {name}.",
+    "Noted — {name}, right? I'll keep it."
+  ]
+}

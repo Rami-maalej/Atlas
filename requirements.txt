@@ -19,6 +19,10 @@ python-dotenv
 
 # ── Workflow orchestration ────────────────────────────────────────────────
 prefect>=3.0.0
+async-event-bus>=1.0.0
+laya>=0.4.0
+sqlite-vec>=0.1.9
+fastembed>=0.9.1
 
 # ── Web automation & search ───────────────────────────────────────────────
 playwright
@@ -85,3 +89,15 @@ edge-tts              # EdgeTTS  (default, free, requires internet)
 # Ollama must be installed separately: https://ollama.com
 # Then pull a model:  ollama pull qwen2.5:7b
 pdfplumber
+
+# ── Google account / Gmail (multi-account, read-only) ──────────────────────
+google-auth
+google-auth-oauthlib
+google-api-python-client
+keyring
+cryptography
+
+# ── Companion mode (local voice loop) ─────────────────────────────────────
+# faster-whisper, sounddevice, openwakeword and onnxruntime are already listed
+# above. Optional: point vad_model to a Silero ONNX model in config/api_keys.json
+# for model-based VAD; the built-in energy VAD needs no extra package.

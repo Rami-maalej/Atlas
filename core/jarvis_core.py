@@ -10,7 +10,9 @@ from __future__ import annotations
 import logging
 import queue
 import threading
+import time
 import traceback
+from typing import Any
 
 from actions.timer_scheduler import set_on_fire as timer_set_callback
 from core.jarvis_config import reconfigure as do_reconfigure
@@ -21,9 +23,8 @@ from core.jarvis_script_lang import _auto_switch_language
 from core.jarvis_stt import _listen_vosk as _lv
 from core.jarvis_stt import _listen_whisper as _lw
 from core.jarvis_stt import _text_command_loop as _tcl
+from core.jarvis_tts import _tts_synth_worker, set_speaking, speak
 from core.jarvis_tts import _tts_worker as _tw
-from core.jarvis_tts import _tts_synth_worker
-from core.jarvis_tts import set_speaking, speak
 from core.llm_client import ensure_ollama_running, get_llm_provider, warmup_model
 from core.scheduler import get_scheduler
 from core.tools.executor import execute_tool
@@ -54,18 +55,27 @@ class JarvisLocal:
         self._tts_play_queue: queue.Queue = queue.Queue()
         self._conversation:   list[dict]  = []
         self._conv_lock = threading.Lock()
-        try:
-            from memory.vector_memory import recent_conversations
-            for turn in recent_conversations(limit=5):
-                user_text = str(turn.get("user", "")).strip()
-                assistant_text = str(turn.get("assistant", "")).strip()
-                if user_text and assistant_text:
-                    self._conversation.extend((
-                        {"role": "user", "content": user_text},
-                        {"role": "assistant", "content": assistant_text},
-                    ))
-        except Exception:
-            pass
+        from core.conversation_state import ConversationState, LatencyLog
+
+        self.conversation = ConversationState(on_change=self._on_conversation_change)
+        self.latency = LatencyLog()
+        self.voice_loop: Any = None
+        from core.chat_history import load_chat_history, register_history_provider
+        self._conversation = load_chat_history()
+        if not self._conversation:
+            try:
+                from memory.vector_memory import recent_conversations
+                for turn in recent_conversations(limit=5):
+                    user_text = str(turn.get("user", "")).strip()
+                    assistant_text = str(turn.get("assistant", "")).strip()
+                    if user_text and assistant_text:
+                        self._conversation.extend((
+                            {"role": "user", "content": user_text},
+                            {"role": "assistant", "content": assistant_text},
+                        ))
+            except Exception:
+                pass
+        register_history_provider(lambda: list(self._conversation))
         self._generation = 0
         self._processing_lock = threading.Lock()
         self._prefetch_thread = None
@@ -73,6 +83,12 @@ class JarvisLocal:
         # inline load instead of silently skipping semantic memory.
         self._prefetched_vec = None
         self._prefetched_skill = None
+        from core import events as _events
+        self._events = _events
+        self._sleep_after = int(self._config.get("sleep_after_seconds", 30) or 30)
+        self._last_activity = time.monotonic()
+        self._sleeping = False
+        self._events.subscribe(self._events.WAKE, self._on_wake_event)
         self._last_intent = None
         self.ui.on_text_command = self._on_text_command
         self._current_language = "en"
@@ -119,7 +135,7 @@ class JarvisLocal:
     # Auto-detect and switch TTS language
     # ------------------------------------------------------------------
     def _auto_switch_language(self, text: str) -> None:
-        self._current_language = _auto_switch_language(self, text)
+        _auto_switch_language(self, text)
 
     # ------------------------------------------------------------------
     # Tool execution — thin wrapper around core/tools/executor.py
@@ -152,10 +168,171 @@ class JarvisLocal:
         do_reconfigure(self, new_config)
 
     # ------------------------------------------------------------------
+    # Conversation state mirroring (Phase 1 wiring)
+    # ------------------------------------------------------------------
+    def _on_conversation_change(self, _old, new) -> None:
+        try:
+            self.ui.set_state(new.value)
+        except Exception:
+            pass
+
+    def _begin_turn(self) -> None:
+        from core.conversation_state import State
+
+        self.latency.begin_turn()
+        self.conversation.transition(State.TRANSCRIBING, force=True)
+
+    def _finish_turn(self) -> None:
+        from core.conversation_state import State
+
+        target = (
+            State.LISTENING
+            if self.voice_loop and self.conversation.in_follow_up_window()
+            else State.IDLE
+        )
+        self.conversation.transition(target, force=True)
+
+    # ------------------------------------------------------------------
+    # Proactive initiative (Phase 4)
+    # ------------------------------------------------------------------
+    def _initiative_loop(self) -> None:
+        from core.initiative_engine import InitiativeEngine
+
+        engine = InitiativeEngine()
+        while True:
+            time.sleep(60)
+            try:
+                for candidate in engine.collect():
+                    ok, _ = engine.gate.allow(candidate, self.conversation)
+                    if not ok:
+                        continue
+                    engine.gate.record_spoken()
+                    if candidate.should_notify_only:
+                        self.ui.write_log(f"NOTICE: {candidate.message}")
+                    else:
+                        self.speak(candidate.message)
+                    break
+            except Exception as e:
+                self.ui.write_log(f"ERR: Proactive — {e}")
+
+    # ------------------------------------------------------------------
+    # Continuous voice (Phase 1)
+    # ------------------------------------------------------------------
+    def enable_continuous_voice(self) -> bool:
+        """Start mic capture with wake word + follow-up window + barge-in."""
+        if self.voice_loop is not None and getattr(self.voice_loop, "_running", False):
+            return True
+        from core.voice_loop import VoiceLoop
+
+        def _on_utterance(audio, _lang):
+            from core.conversation_state import State
+
+            try:
+                self.latency.mark("VAD_END")
+                if self._stt is None:
+                    return
+                self.conversation.transition(State.TRANSCRIBING, force=True)
+                text = self._stt.transcribe(audio)
+                self.latency.mark("STT_DONE")
+                if text and text.strip():
+                    self.conversation.transition(State.THINKING, force=True)
+                    self.process_message(text)
+                    if self.voice_loop:
+                        self.voice_loop.listen_for_follow_up()
+            except Exception as e:
+                self.ui.write_log(f"ERR: Voice turn — {e}")
+                self.conversation.transition(State.IDLE, force=True)
+
+        def _on_barge_in():
+            from core.jarvis_tts import stop_speaking
+
+            stop_speaking(self)
+            self.conversation.barge_in()
+
+        self.voice_loop = VoiceLoop(
+            self.conversation, self.latency,
+            on_utterance=_on_utterance, on_barge_in=_on_barge_in,
+        )
+        self.voice_loop.muted = lambda: self.ui.muted
+        self.voice_loop.sleeping = lambda: self._sleeping
+        ok = self.voice_loop.start()
+        if ok:
+            from core.conversation_state import State
+            self.conversation.transition(State.LISTENING, force=True)
+            self.ui.write_log("SYS: Continuous voice enabled.")
+        return ok
+
+    def disable_continuous_voice(self) -> None:
+        if self.voice_loop:
+            self.voice_loop.stop()
+            self.voice_loop = None
+            self.ui.write_log("SYS: Continuous voice disabled.")
+
+    # ------------------------------------------------------------------
+    # Wake / idle / persistence
+    # ------------------------------------------------------------------
+    def persist_history(self) -> None:
+        from core.chat_history import save_chat_history
+        save_chat_history(list(self._conversation))
+
+    def note_activity(self) -> None:
+        self._last_activity = time.monotonic()
+        if self._sleeping:
+            self._set_awake("activity")
+
+    def _set_awake(self, source: str) -> None:
+        if not self._sleeping:
+            return
+        self._sleeping = False
+        from core.conversation_state import State
+        self.conversation.transition(State.LISTENING, force=True)
+        self._events.emit(
+            self._events.STATE, state="LISTENING", awake=True, source=source
+        )
+
+    def _on_wake_event(self, ctx=None) -> None:
+        self._last_activity = time.monotonic()
+        was_sleeping = self._sleeping
+        self._set_awake("wake")
+        if was_sleeping:
+            self.ui.write_log("SYS: Wake word detected — awake.")
+
+    def _idle_watcher(self) -> None:
+        while True:
+            time.sleep(1)
+            if self._sleeping:
+                continue
+            if time.monotonic() - self._last_activity >= self._sleep_after:
+                self._sleeping = True
+                from core.conversation_state import State
+                self.conversation.transition(State.SLEEP, force=True)
+                self.ui.write_log("SYS: Idle — sleeping. Say 'hey Jarvis' to wake me.")
+                self._events.emit(self._events.SLEEP)
+                self._events.emit(
+                    self._events.STATE, state="SLEEP", awake=False
+                )
+
+    def _start_wake_word(self) -> None:
+        try:
+            from actions.wake_word import start_wake_word
+
+            msg = start_wake_word(
+                on_wake=lambda: self._events.emit(
+                    self._events.WAKE, source="voice"
+                )
+            )
+            self.ui.write_log(f"SYS: {msg}")
+        except Exception as e:
+            self.ui.write_log(f"ERR: Wake word — {e}")
+
+    # ------------------------------------------------------------------
     # LLM turn (stream + overlapped TTS)
     # ------------------------------------------------------------------
     def process_message(self, user_text: str) -> None:
+        self._begin_turn()
+        self.note_activity()
         _pm(self, user_text)
+        self.persist_history()
 
     # ------------------------------------------------------------------
     # Startup
@@ -330,6 +507,10 @@ class JarvisLocal:
             self.ui.write_log("SYS: ATLANTIS online.")
             self.ui.set_state("LISTENING")
             self.ui.set_startup_status("● ATLANTIS online · Voice loading in background…")
+            self._last_activity = time.monotonic()
+            threading.Thread(target=self._idle_watcher, daemon=True).start()
+            threading.Thread(target=self._start_wake_word, daemon=True).start()
+            threading.Thread(target=self._initiative_loop, daemon=True).start()
             # ── Fetch location in background (cached for later use) ───────
             _loc_set = False
             def _init_location():
@@ -356,8 +537,12 @@ class JarvisLocal:
             threading.Thread(target=self._tts_synth_worker,  daemon=True).start()
             threading.Thread(target=self._tts_worker,        daemon=True).start()
             threading.Thread(target=self._text_command_loop,  daemon=True).start()
-            # STT loop — blocks this thread forever
-            if stt_engine == "vosk":
+            # STT loop — the voice loop owns the mic when enabled
+            if self._config.get("continuous_listening"):
+                self.enable_continuous_voice()
+                while True:
+                    time.sleep(1)
+            elif stt_engine == "vosk":
                 _lv(self)
             else:
                 _lw(self)

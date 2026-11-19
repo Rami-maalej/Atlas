@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "saved_at": "2026-11-18T20:02:59",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Jarvis, describe a sunset."
+    },
+    {
+      "role": "assistant",
+      "content": "A sunset is the daily disappearance of the sun below the horizon due to Earth's rotation. It is characterized by vibrant changes in atmospheric light, where the sky often transitions through hues of red, orange, pink, and purple, as sunlight scatters through a greater depth of atmosphere."
+    },
+    {
+      "role": "user",
+      "content": "Jarvis, write a thank-you note."
+    },
+    {
+      "role": "assistant",
+      "content": "Tell me the note to save, for example: 'note: buy milk tomorrow'."
+    },
+    {
+      "role": "user",
+      "content": "what price of btc right now"
+    },
+    {
+      "role": "assistant",
+      "content": "The current price of Bitcoin is $69,425.46."
+    },
+    {
+      "role": "user",
+      "content": "open it in the chart"
+    },
+    {
+      "role": "assistant",
+      "content": "Opening the Bitcoin chart now."
+    },
+    {
+      "role": "user",
+      "content": "open the btc chart"
+    },
+    {
+      "role": "assistant",
+      "content": "Could not open 'the btc chart'. It may not be installed or the name may be different."
+    }
+  ]
+}

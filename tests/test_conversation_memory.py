@@ -1,8 +1,10 @@
-from memory import vector_memory
+from memory import db_vector_store, vector_memory
 
 
 def test_store_conversation_without_embedding(monkeypatch, tmp_path):
-    monkeypatch.setattr(vector_memory, "VEC_PATH", tmp_path / "vector_store.json")
+    monkeypatch.setattr(db_vector_store, "DB_PATH", tmp_path / "vector_store.db")
+    monkeypatch.setattr(db_vector_store, "_initialized", False)
+    monkeypatch.setattr(vector_memory, "_migrated", True)
     monkeypatch.setattr(vector_memory, "_store_cache", {"memories": [], "conversations": []})
     monkeypatch.setattr(vector_memory, "_store_mtime", 0.0)
     monkeypatch.setattr(vector_memory, "_embed", lambda _text: [])
@@ -16,7 +18,9 @@ def test_store_conversation_without_embedding(monkeypatch, tmp_path):
 
 
 def test_recent_conversations_are_chronological_without_embeddings(monkeypatch, tmp_path):
-    monkeypatch.setattr(vector_memory, "VEC_PATH", tmp_path / "vector_store.json")
+    monkeypatch.setattr(db_vector_store, "DB_PATH", tmp_path / "vector_store.db")
+    monkeypatch.setattr(db_vector_store, "_initialized", False)
+    monkeypatch.setattr(vector_memory, "_migrated", True)
     monkeypatch.setattr(vector_memory, "_store_cache", {"memories": [], "conversations": []})
     monkeypatch.setattr(vector_memory, "_store_mtime", 0.0)
     monkeypatch.setattr(vector_memory, "_embed", lambda _text: [])

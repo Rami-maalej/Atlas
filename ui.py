@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import asyncio
-import re
 import json
 import math
 import os
 import platform
 import random
+import re
 import subprocess
 import sys
 import threading
@@ -442,12 +442,18 @@ _BLUE_DIM  = "#006688"
 _BLUE_GLOW = "#003344"
 _CYAN      = "#00e5ff"
 
+_SLEEP_BLUE      = "#7d8b93"
+_SLEEP_BLUE_LIGHT = "#c3ced4"
+_SLEEP_BLUE_DIM  = "#3f4b52"
+_SLEEP_CYAN      = "#9fb0b8"
+
 class HudCanvas(QWidget):
     clicked = pyqtSignal()
 
     def __init__(self, face_path: str, parent=None):
         self.muted    = False
         self.speaking = False
+        self.awake    = True
         self.state    = "INITIALISING"
 
         self._tick       = 0
@@ -552,6 +558,14 @@ class HudCanvas(QWidget):
         self.update()
 
     def paintEvent(self, _):
+        if getattr(self, "awake", True):
+            _BLUE, _BLUE_LIGHT, _BLUE_DIM, _CYAN = (
+                "#00bfff", "#66d9ff", "#006688", "#00e5ff"
+            )
+        else:
+            _BLUE, _BLUE_LIGHT, _BLUE_DIM, _CYAN = (
+                _SLEEP_BLUE, _SLEEP_BLUE_LIGHT, _SLEEP_BLUE_DIM, _SLEEP_CYAN
+            )
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.fillRect(self.rect(), qcol("#000a0f"))
@@ -711,6 +725,8 @@ class HudCanvas(QWidget):
         elif self.state == "LISTENING":
             sym = "◉" if self._blink else "○"
             txt = f"{sym}  LISTENING"
+        elif self.state == "SLEEP":
+            txt = "◐  SLEEPING"
         elif self.state == "ERROR":
             sym = "▲" if self._blink else "⚠"
             txt = f"{sym}  ERROR"
@@ -2689,7 +2705,7 @@ class MainWindow(QMainWindow):
         """
         try:
             from core.lifecycle import shutdown as _lifecycle_shutdown
-            _lifecycle_shutdown(self, speak_text="")
+            _lifecycle_shutdown(ui=None, speak_text="")
         except Exception:
             pass
         try:
@@ -3110,6 +3126,9 @@ class MainWindow(QMainWindow):
             ("Settings", self._show_config),
             ("Connect.", self._show_connections),
             ("Mail", self._show_mail),
+            ("Accounts", self._show_accounts),
+            ("Memory", self._show_memory),
+            ("Voice", self._show_companion),
             ("Island", self._toggle_island),
         ]
         for index, (label, cb) in enumerate(actions, start=1):
@@ -3281,6 +3300,10 @@ class MainWindow(QMainWindow):
             threading.Thread(target=self.on_text_command, args=(txt,), daemon=True).start()
 
     def _apply_state(self, state: str):
+        awake = state not in ("SLEEP", "MUTED")
+        if getattr(self.hud, "awake", True) != awake:
+            self.hud.awake = awake
+            self.hud._grid_px = None
         self.hud.state    = state
         self.hud.speaking = (state == "SPEAKING")
         self._update_status_bar()
@@ -3311,6 +3334,8 @@ class MainWindow(QMainWindow):
             ai_col = C.GREEN
         elif state in ("LISTENING", "PROCESSING"):
             ai_col = "#ffcc00"
+        elif state == "SLEEP":
+            ai_col = C.TEXT_DIM
         elif state == "MUTED":
             ai_col = C.RED
         elif state == "ERROR":
@@ -3535,6 +3560,48 @@ class MainWindow(QMainWindow):
         )
         ov.show()
         self._overlay_mail = ov
+
+    def _show_companion(self):
+        """Open companion settings (voice, proactivity, privacy)."""
+        if getattr(self, "_overlay_companion", None) and self._overlay_companion.isVisible():
+            self._overlay_companion.raise_()
+            return
+        from core.companion_settings import CompanionOverlay
+
+        ov = CompanionOverlay(self.centralWidget())
+        cw = self.centralWidget()
+        ow, oh = min(cw.width() - 20, 620), min(cw.height() - 20, 640)
+        ov.setGeometry((cw.width() - ow) // 2, (cw.height() - oh) // 2, ow, oh)
+        ov.show()
+        self._overlay_companion = ov
+
+    def _show_memory(self):
+        """Open the local memory viewer/editor."""
+        if getattr(self, "_overlay_memory", None) and self._overlay_memory.isVisible():
+            self._overlay_memory.raise_()
+            return
+        from core.memory_overlay import MemoryOverlay
+
+        ov = MemoryOverlay(self.centralWidget())
+        cw = self.centralWidget()
+        ow, oh = min(cw.width() - 20, 760), min(cw.height() - 20, 620)
+        ov.setGeometry((cw.width() - ow) // 2, (cw.height() - oh) // 2, ow, oh)
+        ov.show()
+        self._overlay_memory = ov
+
+    def _show_accounts(self):
+        """Open the Google Accounts panel (multi-account OAuth + sync)."""
+        if getattr(self, "_overlay_accounts", None) and self._overlay_accounts.isVisible():
+            self._overlay_accounts.raise_()
+            return
+        from core.google_overlay import AccountsOverlay
+
+        ov = AccountsOverlay(self.centralWidget())
+        cw = self.centralWidget()
+        ow, oh = min(cw.width() - 20, 880), min(cw.height() - 20, 620)
+        ov.setGeometry((cw.width() - ow) // 2, (cw.height() - oh) // 2, ow, oh)
+        ov.show()
+        self._overlay_accounts = ov
 
     def open_mail_screen(self):
         """Thread-safe: open the mail screen (safe to call from tools/LLM)."""

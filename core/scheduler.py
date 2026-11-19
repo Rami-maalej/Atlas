@@ -31,8 +31,12 @@ class Scheduler:
     def start(self):
         if self._running:
             return
-        from core.workflows import schedule_flow
-        self._execute = schedule_flow(name="Scheduled Job")(self._execute_raw)
+        try:
+            from core.workflows import schedule_flow
+            self._execute = schedule_flow(name="Scheduled Job")(self._execute_raw)
+        except Exception as e:
+            print(f"[Scheduler] Prefect unavailable, using direct execution: {e}")
+            self._execute = self._execute_raw
         self._running = True
         self._load_jobs()
         self._thread = threading.Thread(target=self._loop, daemon=True)
@@ -132,12 +136,19 @@ class Scheduler:
             to_run = []
             with self._lock:
                 for job in self._jobs:
-                    if not job["enabled"]:
+                    if not job.get("enabled"):
                         continue
-                    if job["next_run"] and now >= datetime.fromisoformat(job["next_run"]):
-                        to_run.append(job)
+                    try:
+                        if job.get("next_run") and now >= datetime.fromisoformat(job["next_run"]):
+                            to_run.append(job)
+                    except Exception as e:
+                        print(f"[Scheduler] Invalid next_run for {job.get('name')}: {e}")
+                        job["enabled"] = False
             for job in to_run:
-                self._execute(job)
+                try:
+                    self._execute(job)
+                except Exception as e:
+                    print(f"[Scheduler] Job crashed: {e}")
             time.sleep(5)
 
     def _execute_raw(self, job: dict):
@@ -151,6 +162,8 @@ class Scheduler:
                         j["last_run"] = datetime.now().isoformat()
                         j["run_count"] = j.get("run_count", 0) + 1
                         j["next_run"] = self._parse_schedule(j["schedule"])
+                        if str(j.get("schedule", "")).lower() in ("once", "one-time", "one time"):
+                            j["enabled"] = False
                         self._save_jobs()
                         break
         except Exception as e:

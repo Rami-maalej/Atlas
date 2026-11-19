@@ -1,5 +1,6 @@
 import logging
 import platform
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -7,6 +8,20 @@ from typing import Any
 logger = logging.getLogger("file_search")
 
 _OS = platform.system()
+
+
+def _fd_binary() -> str | None:
+    """Locate the fd binary (PATH first, then the usual user-local installs)."""
+    found = shutil.which("fd")
+    if found:
+        return found
+    for candidate in (
+        Path.home() / ".local" / "bin" / "fd",
+        Path.home() / ".cargo" / "bin" / "fd",
+    ):
+        if candidate.is_file():
+            return str(candidate)
+    return None
 
 
 def search_files(
@@ -19,9 +34,40 @@ def search_files(
     return _search_linux(query, root, max_results)
 
 
+def _search_fd(query: str, root: str | None, max_results: int) -> list[dict[str, Any]]:
+    """Fast path: fd walks the tree in parallel and respects .gitignore."""
+    binary = _fd_binary()
+    if not binary or not query:
+        return []
+    try:
+        proc = subprocess.run(
+            [
+                binary, "--hidden", "--ignore-case", "--type", "f",
+                "--fixed-strings", "--max-results", str(max_results),
+                "--color", "never", query, root or str(Path.home()),
+            ],
+            capture_output=True, text=True, timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        logger.debug("fd search failed: %s", e)
+        return []
+    if proc.returncode not in (0, 1):
+        return []
+    results: list[dict[str, Any]] = []
+    for line in proc.stdout.splitlines():
+        path = Path(line.strip())
+        if path.is_file():
+            results.append(_file_info(path))
+        if len(results) >= max_results:
+            break
+    return results
+
+
 def _search_linux(query: str, root: str | None, max_results: int) -> list[dict[str, Any]]:
     root = root or str(Path.home())
-    results = []
+    results = _search_fd(query, root, max_results)
+    if results:
+        return results
     try:
         proc = subprocess.run(
             ["locate", "-i", "-l", str(max_results), query],

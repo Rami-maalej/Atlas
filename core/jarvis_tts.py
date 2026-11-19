@@ -7,7 +7,6 @@ current one is still playing (pipeline), removing the 2-3s silent gap.
 from __future__ import annotations
 
 import queue
-import threading
 
 
 def _tts_synth_worker(self) -> None:
@@ -37,6 +36,13 @@ def _tts_worker(self) -> None:
             if text and prepared is not None and self._tts:
                 with self._speaking_lock:
                     self._speaking = True
+                _lat = getattr(self, "latency", None)
+                if _lat:
+                    _lat.mark("FIRST_TTS_AUDIO")
+                _conv = getattr(self, "conversation", None)
+                if _conv is not None:
+                    from core.conversation_state import State
+                    _conv.transition(State.SPEAKING, force=True)
                 self.ui.set_state("SPEAKING")
                 if show:
                     self.ui.write_log_instant(f"Atlantis: {text}")
@@ -57,7 +63,14 @@ def _tts_worker(self) -> None:
             if self._tts_play_queue.empty() and self._tts_queue.empty():
                 with self._speaking_lock:
                     self._speaking = False
-                if not self.ui.muted:
+                _lat = getattr(self, "latency", None)
+                if _lat:
+                    _lat.mark("RESPONSE_END")
+                    _lat.finish()
+                _finish = getattr(self, "_finish_turn", None)
+                if _finish:
+                    _finish()
+                elif not self.ui.muted:
                     self.ui.set_state("LISTENING")
 
 
@@ -65,6 +78,10 @@ def set_speaking(self, value: bool) -> None:
     with self._speaking_lock:
         self._speaking = value
     if value:
+        _conv = getattr(self, "conversation", None)
+        if _conv is not None:
+            from core.conversation_state import State
+            _conv.transition(State.SPEAKING, force=True)
         self.ui.set_state("SPEAKING")
     elif not self.ui.muted:
         self.ui.set_state("LISTENING")
@@ -88,3 +105,26 @@ def speak_error(self, tool_name: str, error) -> None:
     short = str(error)[:120]
     self.ui.write_log(f"ERR: {tool_name} — {short}")
     self.speak("I'm afraid that didn't work, sir.")
+
+
+def stop_speaking(self) -> None:
+    """Barge-in: drop queued speech and stop playback immediately."""
+    for q in (self._tts_queue, self._tts_play_queue):
+        while True:
+            try:
+                q.get_nowait()
+                q.task_done()
+            except queue.Empty:
+                break
+    try:
+        from tts import stop
+
+        stop()
+    except Exception:
+        pass
+    try:
+        if self._tts and hasattr(self._tts, "stop"):
+            self._tts.stop()
+    except Exception:
+        pass
+    set_speaking(self, False)

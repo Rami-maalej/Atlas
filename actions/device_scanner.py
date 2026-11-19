@@ -45,7 +45,7 @@ def _ps(cmd: str) -> str:
             capture_output=True,
             text=True,
             timeout=12.0,
-            shell=True,
+            shell=True,  # nosec B602 - commands here are fixed literals/adb path, no user input
         )
         return (proc.stdout or "").strip()
     except Exception:  # noqa: BLE001

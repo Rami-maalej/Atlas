@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 import platform
 import re
+import shlex
 import shutil
 import subprocess
 
@@ -140,7 +141,10 @@ def use_tool(parameters: dict, player=None) -> str:
         if os_name == "windows":
             res = subprocess.run(["cmd", "/c", cmd], capture_output=True, text=True, timeout=60)
         else:
-            res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=60)
+            res = subprocess.run(
+                shlex.split(cmd), shell=False, capture_output=True,
+                text=True, timeout=60,
+            )
     except subprocess.TimeoutExpired:
         return f"{tool.title()} is running — the command is taking more than 60s, it may continue in the background."
     except Exception as e:

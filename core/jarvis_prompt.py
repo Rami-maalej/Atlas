@@ -24,7 +24,11 @@ def _load_system_prompt() -> str:
     if _SYSTEM_PROMPT_CACHE is not None:
         return _SYSTEM_PROMPT_CACHE
     try:
-        _SYSTEM_PROMPT_CACHE = PROMPT_PATH.read_text(encoding="utf-8")
+        from core.persona import load_persona
+        _SYSTEM_PROMPT_CACHE = (
+            PROMPT_PATH.read_text(encoding="utf-8")
+            + "\n\n" + load_persona()
+        )
     except Exception:
         _SYSTEM_PROMPT_CACHE = (
             "You are ATLANTIS — Rami's aide in the mould of Jarvis from Iron Man. "

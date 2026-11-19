@@ -33,3 +33,18 @@ config/remote_token.txt
 media/qr/
 memory/screens/
 opencodesession.txt
+
+# Google OAuth / Gmail cache — never commit
+config/credentials.json
+config/google_tokens.enc
+config/.google_key
+.env
+memory/gmail.db
+memory/gmail.db-*
+memory/google_accounts.json
+
+# generated dashboard data
+test-results.json
+test-results.raw.json
+coverage.json
+test-history.json

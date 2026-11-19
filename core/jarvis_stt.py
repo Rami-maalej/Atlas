@@ -34,9 +34,15 @@ def _listen_whisper(self) -> None:
     def callback(indata, frames, time_info, status):
         with self._speaking_lock:
             is_speaking = self._speaking
-        if not is_speaking and not self.ui.muted:
+        chunk = indata.copy()
+        try:
+            from actions.wake_word import feed_audio_chunk
+            feed_audio_chunk(chunk)
+        except Exception:
+            pass
+        if not is_speaking and not self.ui.muted and not getattr(self, "_sleeping", False):
             try:
-                q.put_nowait(indata.copy())
+                q.put_nowait(chunk)
             except queue.Full:
                 pass
 
@@ -79,9 +85,15 @@ def _listen_vosk(self) -> None:
     def callback(indata, frames, time_info, status):
         with self._speaking_lock:
             is_speaking = self._speaking
-        if not is_speaking and not self.ui.muted:
+        chunk = indata.copy()
+        try:
+            from actions.wake_word import feed_audio_chunk
+            feed_audio_chunk(chunk)
+        except Exception:
+            pass
+        if not is_speaking and not self.ui.muted and not getattr(self, "_sleeping", False):
             try:
-                q.put_nowait(indata.copy())
+                q.put_nowait(chunk)
             except queue.Full:
                 pass
 

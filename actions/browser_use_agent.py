@@ -39,7 +39,7 @@ def _make_chat_openai(model: str, api_key: str, base: str):
     configured provider can still be reached programmatically.
     """
     try:
-        from browser_use.llm.openai.chat import ChatOpenAI
+        from browser_use.llm import ChatOpenAI
 
         return ChatOpenAI(model=model, api_key=api_key, base_url=base)
     except ImportError:
@@ -91,21 +91,6 @@ def _build_llm_client() -> dict | None:
         return {"client": client, "model": llm_model}
 
     if provider in ("ollama", "openrouter"):
-        try:
-            from browser_use.llm.litellm.chat import ChatLiteLLM
-        except ImportError:
-            ChatLiteLLM = None
-
-        if ChatLiteLLM is not None:
-            return {
-                "client": ChatLiteLLM(
-                    model=f"openai/{llm_model}",
-                    api_base=base,
-                    api_key=api_key,
-                    num_retries=2,
-                ),
-                "model": llm_model,
-            }
         client = _make_chat_openai(llm_model, api_key, base)
         if client is None:
             return None
@@ -135,26 +120,11 @@ def run_browser_use_task(
         if llm_info is None:
             return "No LLM client configured for browser-use."
         llm = llm_info["client"]
-        model = llm_info["model"]
 
-        from browser_use import Agent, BrowserSession
+        from browser_use import Agent, Browser
 
-        browser = BrowserSession(
-            headless=headless,
-        )
-
-        agent = Agent(
-            task=task,
-            llm=llm,
-            browser=browser,
-            use_vision=use_vision,
-            max_failures=3,
-            max_actions_per_step=5,
-            use_thinking=True,
-            max_steps=max_steps * 7,  # internal step budget
-            generate_gif=False,
-            step_timeout=timeout,
-        )
+        browser = Browser(headless=headless)
+        agent = Agent(task=task, llm=llm, browser=browser)
 
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -163,12 +133,18 @@ def run_browser_use_task(
                 asyncio.wait_for(agent.run(max_steps=max_steps), timeout=timeout)
             )
         finally:
+            try:
+                loop.run_until_complete(browser.close())
+            except Exception:
+                pass
             loop.close()
+            asyncio.set_event_loop(None)
 
         elapsed = time.time() - start
-        result = history.final_result()
+        final = getattr(history, "final_result", None)
+        result = final() if callable(final) else None
         if result:
-            text = result.strip()
+            text = str(result).strip()
         else:
             text = str(history)
             if not text or text == "None":

@@ -13,11 +13,9 @@ The server prints:
 """
 import asyncio
 import json
-import os
 import socket
 import sys
 import threading
-import traceback
 from datetime import datetime
 from pathlib import Path
 
@@ -41,38 +39,13 @@ BASE_DIR = Path(__file__).resolve().parent
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-from actions.browser_control import browser_control
-from actions.code_helper import code_helper
-from actions.computer_control import computer_control
-from actions.computer_settings import computer_settings
-from actions.desktop import desktop_control
-from actions.dev_agent import dev_agent
-from actions.file_controller import file_controller
-from actions.file_processor import file_processor
-from actions.flight_finder import flight_finder
-from actions.game_updater import game_updater
-from actions.get_location import get_location
-
-# Tool imports
-from actions.open_app import open_app
-from actions.reminder import reminder
-from actions.screen_processor import screen_process
-from actions.send_message import send_message
-from actions.weather_report import weather_action
-from actions.web_search import web_search as web_search_action
-from actions.youtube_video import youtube_video
-from agent.agent_manager import get_agent_manager
 from core.llm_client import call_llm_stream, ensure_ollama_running, warmup_model
 from core.remote_api import RemoteAPIServer
-from core.safe_math import safe_math
-from core.scheduler import get_scheduler
-from memory.memory_manager import format_memory_for_prompt, load_memory, update_memory
+from memory.memory_manager import format_memory_for_prompt, load_memory
 from memory.vector_memory import (
     get_memory_count,
     get_relevant_context,
-    search_memory,
     store_conversation,
-    store_memory,
 )
 from skills.skill_loader import get_active_skill_context
 
@@ -548,12 +521,47 @@ def _load_system_prompt() -> str:
             "and engaging in general friendly chat / conversation. Keep responses under 3 sentences."
         )
 
+_SHARED_EXECUTE = None
+
+
+def _shared_execute_tool():
+    """Lazily load the shared dispatcher (it imports many optional actions)."""
+    global _SHARED_EXECUTE
+    if _SHARED_EXECUTE is None:
+        from core.tools.executor import execute_tool
+        _SHARED_EXECUTE = execute_tool
+    return _SHARED_EXECUTE
+
+
+class _HeadlessUIAdapter:
+    """Minimal UI stand-in for the shared dispatcher, with no GUI capabilities."""
+
+    muted = True
+    current_file = None
+
+    def __init__(self, log):
+        self._log = log
+
+    def set_state(self, *_args):
+        pass
+
+    def write_log(self, message):
+        self._log(message)
+
+    def set_location(self, *_args):
+        pass
+
+    def show_error_state(self, message):
+        self._log(message)
+
+
 class HeadlessJarvis:
     """Headless version of the Jarvis processing pipeline for the bridge."""
 
     def __init__(self):
         self._conversation = []
         self._log_callback = None
+        self._ui_adapter = _HeadlessUIAdapter(self.log)
 
     def set_log_callback(self, cb):
         self._log_callback = cb
@@ -598,220 +606,19 @@ class HeadlessJarvis:
 
     def _execute_tool(self, name: str, args: dict) -> str:
         self.log(f"Tool: {name} {args}")
+        return _shared_execute_tool()(
+            self._ui_adapter, name, args,
+            speak=lambda *_: None,
+            run_async=self._run_async,
+            headless=True,
+        )
 
-        if name == "save_memory":
-            category = args.get("category", "notes")
-            key = args.get("key", "")
-            value = args.get("value", "")
-            if key and value:
-                memory = load_memory()
-                existing = memory.get(category, {}).get(key, {}).get("value", "")
-                if existing and category in ("notes", "preferences") and any(
-                    w in key.lower() for w in ["list", "todo", "grocery", "shopping", "tasks", "items"]
-                ):
-                    value = existing + "\n- " + value
-                update_memory({category: {key: {"value": value}}})
-                try:
-                    threading.Thread(
-                        target=store_memory,
-                        args=(f"{key}: {value}", category, "fact"),
-                        daemon=True,
-                    ).start()
-                except Exception:
-                    pass
-            return "__SILENT__"
+    def _run_async(self, coro):
+        """Run a coroutine from the synchronous tool dispatcher."""
+        from concurrent.futures import ThreadPoolExecutor
 
-        try:
-            if name == "open_app":
-                r = open_app(parameters=args, response=None, player=None)
-                return r or f"Opened {args.get('app_name')}."
-            elif name == "weather_report":
-                r = weather_action(parameters=args, player=None)
-                return r or "Weather delivered."
-            elif name == "send_message":
-                r = send_message(parameters=args, response=None, player=None, session_memory=None)
-                return r or f"Message sent to {args.get('receiver')}."
-            elif name == "reminder":
-                r = reminder(parameters=args, response=None, player=None)
-                return r or "Reminder set."
-            elif name == "youtube_video":
-                r = youtube_video(parameters=args, response=None, player=None)
-                return r or "Done."
-            elif name == "screen_process":
-                r = screen_process(parameters=args, response=None, player=None, session_memory=None)
-                return r if isinstance(r, str) and r else "Screen analyzed."
-            elif name == "computer_settings":
-                r = computer_settings(parameters=args, response=None, player=None)
-                return r or "Done."
-            elif name == "desktop_control":
-                r = desktop_control(parameters=args, player=None)
-                return r or "Done."
-            elif name == "code_helper":
-                r = code_helper(parameters=args, player=None, speak=None)
-                return r or "Done."
-            elif name == "dev_agent":
-                r = dev_agent(parameters=args, player=None, speak=None)
-                return r or "Done."
-            elif name == "web_search":
-                r = web_search_action(parameters=args, player=None)
-                return r or "Done."
-            elif name == "file_processor":
-                r = file_processor(parameters=args, player=None, speak=None)
-                return r or "Done."
-            elif name == "computer_control":
-                r = computer_control(parameters=args, player=None)
-                return r or "Done."
-            elif name == "run_command":
-                r = computer_control(parameters={
-                    "action": "run_command",
-                    "command": args.get("command", ""),
-                    "timeout": int(args.get("timeout", 60)),
-                    "workdir": args.get("workdir"),
-                }, player=None)
-                return r or "Done."
-            elif name == "run_python":
-                r = computer_control(parameters={
-                    "action": "run_python",
-                    "code": args.get("code", ""),
-                    "timeout": int(args.get("timeout", 30)),
-                }, player=None)
-                return r or "Done."
-            elif name == "browser_control":
-                r = browser_control(parameters=args, player=None)
-                return r or "Done."
-            elif name == "file_controller":
-                r = file_controller(parameters=args, player=None)
-                return r or "Done."
-            elif name == "game_updater":
-                r = game_updater(parameters=args, player=None, speak=None)
-                return r or "Done."
-            elif name == "flight_finder":
-                r = flight_finder(parameters=args, player=None)
-                return r or "Done."
-            elif name == "get_location":
-                r = get_location(parameters=args, player=None)
-                return r or "Location retrieved."
-            elif name == "agent_task":
-                from agent.task_queue import TaskPriority, get_queue
-                priority_map = {
-                    "low": TaskPriority.LOW,
-                    "normal": TaskPriority.NORMAL,
-                    "high": TaskPriority.HIGH,
-                }
-                priority = priority_map.get(args.get("priority", "normal").lower(), TaskPriority.NORMAL)
-                task_id = get_queue().submit(goal=args.get("goal", ""), priority=priority, speak=None)
-                return f"Task started (ID: {task_id})."
-            elif name == "calculate":
-                return self._calculate(args)
-            elif name == "manage_agents":
-                return self._manage_agents(args)
-            elif name == "manage_scheduler":
-                return self._manage_scheduler(args)
-            elif name == "search_memory":
-                query = args.get("query", "")
-                top_k = int(args.get("top_k", 5))
-                if not query:
-                    return "No query provided."
-                results = search_memory(query, top_k=top_k)
-                if not results:
-                    return "No relevant memories found."
-                lines = [f"Found {len(results)} relevant memories:"]
-                for r in results:
-                    lines.append(f"  [{r['category']}] {r['text'][:150]}")
-                return "\n".join(lines)
-            elif name == "shutdown_jarvis":
-                self.log("Shutdown requested via phone.")
-                import signal
-                os.kill(os.getpid(), signal.SIGTERM)
-                return "Shutting down."
-            else:
-                return f"Unknown tool: {name}"
-        except Exception as e:
-            self.log(f"Tool '{name}' failed: {e}")
-            traceback.print_exc()
-            return f"Tool '{name}' failed: {e}"
-
-    def _calculate(self, args: dict) -> str:
-        import re as _re
-        expr = (args or {}).get("expression", "").strip()
-        if not expr:
-            return "No expression provided."
-        # Temperature conversion
-        m = _re.match(r'([\d.]+)\s*°?\s*(Celsius|C|Fahrenheit|F)\s*(?:to|in|→)\s*(Celsius|C|Fahrenheit|F)', expr, _re.IGNORECASE)
-        if m:
-            val = float(m.group(1))
-            from_u = m.group(2).upper()
-            to_u = m.group(3).upper()
-            if from_u in ("C", "CELSIUS") and to_u in ("F", "FAHRENHEIT"):
-                return f"{expr} = {val * 9/5 + 32}°F"
-            elif from_u in ("F", "FAHRENHEIT") and to_u in ("C", "CELSIUS"):
-                return f"{expr} = {(val - 32) * 5/9}°C"
-        # Percentage
-        m = _re.match(r'([\d.]+)\s*%?\s*(?:percent\s+of|of)\s+([\d.]+)', expr, _re.IGNORECASE)
-        if m:
-            pct = float(m.group(1)); val = float(m.group(2))
-            return f"{pct}% of {val} = {val * pct / 100}"
-        try:
-            result = safe_math(expr)
-            return f"{expr} = {result}"
-        except Exception as e:
-            return f"Could not calculate: {e}"
-
-    def _manage_agents(self, args: dict) -> str:
-        action = args.get("action", "").lower()
-        agent_mgr = get_agent_manager()
-        if action == "create":
-            agent = agent_mgr.create_agent(
-                name=args.get("name", "Agent"),
-                goal=args.get("goal", ""),
-                instructions=args.get("instructions", ""),
-            )
-            interval = int(args.get("interval", 0))
-            if interval > 0:
-                agent.start(interval=interval)
-            return f"Agent '{agent.name}' created (ID: {agent.agent_id})."
-        elif action == "stop":
-            agent = agent_mgr.get_agent(args.get("agent_id", ""))
-            if agent:
-                agent.stop()
-                return f"Agent '{agent.name}' stopped."
-            return "Agent not found."
-        elif action == "remove":
-            ok = agent_mgr.remove_agent(args.get("agent_id", ""))
-            return "Agent removed." if ok else "Agent not found."
-        elif action in ("list", "status"):
-            agents = agent_mgr.list_agents()
-            if not agents:
-                return "No background agents."
-            lines = [f"Background Agents ({len(agents)}):"]
-            for a in agents:
-                lines.append(f"  [{a['status']}] {a['name']} ({a['agent_id']}) — {a['goal']}")
-            return "\n".join(lines)
-        return f"Unknown action: {action}"
-
-    def _manage_scheduler(self, args: dict) -> str:
-        action = args.get("action", "").lower()
-        sched = get_scheduler()
-        if action == "add":
-            job_id = sched.add_job(
-                name=args.get("name", "Job"),
-                command=args.get("command", ""),
-                schedule=args.get("schedule", "hourly"),
-            )
-            return f"Job '{args.get('name')}' scheduled (ID: {job_id})."
-        elif action == "remove":
-            ok = sched.remove_job(args.get("job_id", ""))
-            return "Job removed." if ok else "Job not found."
-        elif action == "list":
-            jobs = sched.list_jobs()
-            if not jobs:
-                return "No scheduled jobs."
-            lines = ["Scheduled Jobs:"]
-            for j in jobs:
-                enabled = "✓" if j["enabled"] else "✗"
-                lines.append(f"  {enabled} [{j['type']}] {j['name']} — every {j['schedule']} (runs: {j['run_count']})")
-            return "\n".join(lines)
-        return f"Unknown action: {action}"
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(asyncio.run, coro).result(timeout=60)
 
     async def process_text(self, user_text: str) -> str:
         """Process user text through the LLM + tool pipeline. Returns the final response."""

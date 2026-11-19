@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import asyncio
 import json
-import re
 import logging
+import re
 import threading
 from typing import Any
 
@@ -122,12 +122,13 @@ def _offline_identity_scope_reply(user_text: str) -> str:
     )
 
 
-def _speak_and_show(self, text: str) -> None:
-    """Real assistants reveal text when speech starts (play worker).
-    Fake/test assistants without a TTS queue need the direct write."""
-    self.speak(text)
+def _speak_and_show(self, text: str, display: str | None = None) -> None:
+    """Speak a short summary; show the full content on screen."""
+    from core.persona import display_text, spoken_text
+
+    self.speak(spoken_text(text))
     if not hasattr(self, "_tts_queue"):
-        self.ui.write_log_instant(f"Atlantis: {text}")
+        self.ui.write_log_instant(f"Atlantis: {display or display_text(text)}")
 
 
 def _humanize_tool_result(result: str) -> str:
@@ -179,6 +180,16 @@ def _process_message(self, user_text: str) -> None:
     def _cancelled() -> bool:
         return _gen != self._generation
 
+    # ── Conversational layer: small talk / rules / memory / guarded LLM ──
+    # Only returns True when this turn was fully handled here (no automation
+    # path). Live terminal logging of every message lives in conversation.py.
+    try:
+        import conversation as _conv
+        if _conv.handle(self, user_text):
+            return
+    except Exception as e:
+        print(f"[conversation] layer error: {e}", flush=True)
+
     self._auto_switch_language(user_text)
     self.ui.set_state("THINKING")
     self.ui.write_log(f"You: {user_text}")
@@ -223,9 +234,12 @@ def _process_message(self, user_text: str) -> None:
     if self._last_intent.matched and not self._last_intent.requires_ai:
         # Route directly — no LLM call needed
         tool_params = self._last_intent.handler_params
+        print(f"[you] {user_text}", flush=True)
+        print(f"[rule] {self._last_intent.intent_name} -> {self._last_intent.handler_name} {tool_params}", flush=True)
         self.ui.write_log(f"INTENT: {self._last_intent.intent_name} → {tool_params}")
         try:
             result = self._execute_tool(self._last_intent.handler_name, tool_params)
+            print(f"[result] {str(result)[:200]}", flush=True)
         finally:
             if not self.ui.muted and not getattr(self, "_speaking", False):
                 self.ui.set_state("LISTENING")
@@ -332,10 +346,15 @@ def _process_message(self, user_text: str) -> None:
         try:
             for event in call_llm_stream(messages, _tools, model_override=override):
                 if event["type"] == "sentence":
+                    if not _streamed:
+                        _lat = getattr(self, "latency", None)
+                        if _lat:
+                            _lat.mark("FIRST_LLM_TOKEN")
                     # ── Overlap TTS with LLM generation ─────────────────
                     # Queue this sentence immediately; the synth worker
                     # prepares it while the LLM generates the next one,
                     # and the play worker reveals the text as it speaks.
+                    print(f"[llm-stream] {event['text']}", flush=True)
                     _streamed.append(event["text"])
                     _speak_and_show(self, event["text"])
                 elif event["type"] == "done":

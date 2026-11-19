@@ -182,7 +182,7 @@ def format_human_recall(query: str, top_k: int = 5,
             lines = []
             for c in conv[:2]:
                 lines.append(
-                    f"- [{c.get('timestamp', '')[:16]}] "
+                    f"- [{c.get('created', '')[:16]}] "
                     f"You: {str(c.get('user', ''))[:140]}\n"
                     f"  Atlantis: {str(c.get('assistant', ''))[:200]}"
                 )

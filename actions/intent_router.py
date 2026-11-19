@@ -58,7 +58,7 @@ _INTENTS: list[dict[str, Any]] = [
         "name": "translator",
         "subsystem": "tools",
         "patterns": [
-            r'translate\s+.+?\s+into?\s+\w+',
+            r'translate\s+.+?\s+(?:to|into|in)\s+\w+',
             r'traduis\s+.+?\s+en\s+\w+',
             r'comment\s+dit\s*on\s+.+?\s+en\s+\w+',
             r'traduction\s+de\s+.+?\s+vers\s+\w+',
@@ -372,294 +372,6 @@ _INTENTS: list[dict[str, Any]] = [
         "requires_ai": False,
     },
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    # ── Extra micro-tools / public APIs / opencode ─────────────
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    # ── Extra micro-tools / public APIs / opencode ─────────────
-
-
-    # ── Extra micro-tools / public APIs / opencode ─────────────
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     # ── Greetings ─────────────────────────────────────────────────────
     # Intentionally NO canned greeting intent.  A fixed
     # "Hello! How can I help you?" made every opener identical and blind to
@@ -667,6 +379,17 @@ _INTENTS: list[dict[str, Any]] = [
     # now detected as small-talk and answered by the model WITH the full
     # system prompt (see core/jarvis_utils._is_smalltalk).
 
+    {
+        "name": "forget_memory",
+        "subsystem": "memory",
+        "patterns": [
+            r"^(?:forget|erase)\s+(?:that\s+)?(.+?)\s*$",
+            r"^forget that\s*$",
+        ],
+        "handler": "forget_memory",
+        "params": {},
+        "requires_ai": False,
+    },
     # ── Personal Info (save memory directly, no LLM needed) ──────────
     {
         "name": "save_memory",
@@ -870,6 +593,17 @@ _INTENTS: list[dict[str, Any]] = [
         "params": {},
         "requires_ai": False,
         "priority": "high",
+    },
+    {
+        "name": "browser_use",
+        "subsystem": "browser",
+        "patterns": [
+            r"^(?:browse|research|automate|fill\s+out|log\s+in\s+to|sign\s+in\s+to)\b(?!\s+(?:files?|folders?|local(?:\s+files?)?|youtube|my\s+(?:files|folders|tasks|notes)))\s+.*",
+            r".*\b(?:use|using)\s+(?:the\s+)?browser\s+agent\b.*",
+        ],
+        "handler": "browser_use",
+        "params": {},
+        "requires_ai": False,
     },
     {
         "name": "youtube_video",
@@ -2090,6 +1824,11 @@ class IntentRouter:
         """Extract parameters from the matched text."""
         params: dict[str, Any] = {}
 
+        if intent["name"] == "forget_memory":
+            params["what"] = re.sub(
+                r"^(?:forget|erase)\s+(?:that\s+)?", "", text, flags=re.IGNORECASE
+            ).strip() or "that"
+
         if intent["name"] == "open_app":
             app = text[match.end():].strip().rstrip("!?., ")
             if app:
@@ -2128,6 +1867,9 @@ class IntentRouter:
             params["url"] = site
             params["action"] = "auto_fill"
 
+        elif intent["name"] == "browser_use":
+            params["task"] = text.strip()
+
         elif intent["name"] == "web_search":
             query = text[match.end():].strip().rstrip("!?., ")
             if query:
@@ -2156,34 +1898,6 @@ class IntentRouter:
             else:
                 params["goal"] = text
 
-        elif intent["name"] == "youtube_video":
-            query = ""
-            # Try capture groups first ("search youtube for X" has X in group(1))
-            if match.re.groups > 0:
-                g = match.group(match.re.groups)
-                if g and g not in ("in", "on", "the", "youtube", "yt"):
-                    query = g.strip()
-            if not query:
-                query = text[match.end():].strip().rstrip("!?., ")
-            # "open/play/search X in/on youtube/yt" → extract X from before the preposition
-            if not query:
-                in_match = re.search(r"\s+(?:in|on)\s+(?:youtube|yt)\s*$", text, re.IGNORECASE)
-                if in_match:
-                    query = text[:in_match.start()].strip()
-            # "open/play/search X in/on youtube/yt" — also try extracting from the text before match end
-            if not query and match.group().strip():
-                before = text[:match.start()] + text[match.end():]
-                in_match2 = re.search(r"\s+(?:in|on)\s+(?:youtube|yt)\s*$", before, re.IGNORECASE)
-                if in_match2:
-                    query = before[:in_match2.start()].strip()
-            if query:
-                for prefix in ["play ", "search ", "open ", "a ", "an ", "the "]:
-                    if query.lower().startswith(prefix):
-                        query = query[len(prefix):].strip()
-            if not query:
-                query = text
-            params["action"] = "play"
-            params["query"] = query
 
         elif intent["name"] == "save_memory":
             value = match.group(match.re.groups).strip().rstrip("!?., ")
@@ -2540,72 +2254,6 @@ class IntentRouter:
             if not params.get("subject"):
                 params["subject"] = params.get("body", "")[:50] or "No subject"
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
         elif intent["name"] == "stock_market":
             if match and len(match.groups()) >= 3:
                 params["symbol"] = match.group(3).strip().upper()
@@ -2613,7 +2261,7 @@ class IntentRouter:
             # Patterns have no capture groups — parse directly from the text.
             m = re.search(
                 r"(?:translate|traduis|comment\s+dit\s*on|traduction\s+de)\s+"
-                r"['\"]?(.+?)['\"]?\s+(?:into?|to|en|vers)\s+(\w+)",
+                r"['\"]?(.+?)['\"]?\s+(?:into|to|en|vers)\s+(\w+)",
                 text, re.IGNORECASE,
             )
             if m:
@@ -2668,7 +2316,14 @@ class IntentRouter:
         elif intent["name"] == "random_tools":
             pass
         elif intent["name"] == "notes_tools":
-            if match: params["text"] = (_last_group(match) or "").strip()
+            note_match = re.search(r"(?:note|write\s+(?:a\s+)?note|save\s+(?:a\s+)?note)\s*:\s*(.+)", text, re.IGNORECASE)
+            if note_match:
+                params["text"] = note_match.group(1).strip()
+                params["action"] = "save"
+            elif re.search(r"^(list|show|affiche|montre|liste)\s+(my\s+|mes\s+)?notes?\b", text, re.IGNORECASE):
+                params["action"] = "list"
+            elif match:
+                params["text"] = (_last_group(match) or "").strip()
         elif intent["name"] == "system_info_tools":
             pass
         elif intent["name"] == "screen_ocr":

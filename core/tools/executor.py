@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import os
+import signal
 import threading
 import traceback
 from datetime import datetime
@@ -200,13 +202,142 @@ from memory.vector_memory import (
 from skills.skill_loader import list_skills, reload_skills
 
 
+def _headless_calculate(args: dict) -> str:
+    """Evaluate an expression for the UI-less phone bridge."""
+    import re as _re
+
+    expr = (args or {}).get("expression", "").strip()
+    if not expr:
+        return "No expression provided."
+    m = _re.match(
+        r'([\d.]+)\s*°?\s*(Celsius|C|Fahrenheit|F)\s*(?:to|in|→)\s*(Celsius|C|Fahrenheit|F)',
+        expr, _re.IGNORECASE,
+    )
+    if m:
+        val = float(m.group(1))
+        from_u = m.group(2).upper()
+        to_u = m.group(3).upper()
+        if from_u in ("C", "CELSIUS") and to_u in ("F", "FAHRENHEIT"):
+            return f"{expr} = {val * 9 / 5 + 32}°F"
+        if from_u in ("F", "FAHRENHEIT") and to_u in ("C", "CELSIUS"):
+            return f"{expr} = {(val - 32) * 5 / 9}°C"
+    m = _re.match(
+        r'([\d.]+)\s*%?\s*(?:percent\s+of|of)\s+([\d.]+)',
+        expr, _re.IGNORECASE,
+    )
+    if m:
+        pct = float(m.group(1))
+        val = float(m.group(2))
+        return f"{pct}% of {val} = {val * pct / 100}"
+    try:
+        return f"{expr} = {calculate(expr)}"
+    except Exception as e:
+        return f"Could not calculate: {e}"
+
+
+def _headless_manage_agents(args: dict, agent_mgr) -> str:
+    """Headless agent management (no 'start' action, shorter create message)."""
+    action = args.get("action", "").lower()
+    if action == "create":
+        agent = agent_mgr.create_agent(
+            name=args.get("name", "Agent"),
+            goal=args.get("goal", ""),
+            instructions=args.get("instructions", ""),
+        )
+        interval = int(args.get("interval", 0))
+        if interval > 0:
+            agent.start(interval=interval)
+        return f"Agent '{agent.name}' created (ID: {agent.agent_id})."
+    if action == "stop":
+        agent = agent_mgr.get_agent(args.get("agent_id", ""))
+        if agent:
+            agent.stop()
+            return f"Agent '{agent.name}' stopped."
+        return "Agent not found."
+    if action == "remove":
+        ok = agent_mgr.remove_agent(args.get("agent_id", ""))
+        return "Agent removed." if ok else "Agent not found."
+    if action in ("list", "status"):
+        agents = agent_mgr.list_agents()
+        if not agents:
+            return "No background agents."
+        lines = [f"Background Agents ({len(agents)}):"]
+        for a in agents:
+            lines.append(f"  [{a['status']}] {a['name']} ({a['agent_id']}) — {a['goal']}")
+        return "\n".join(lines)
+    return f"Unknown action: {action}"
+
+
+def _headless_manage_scheduler(args: dict, sched) -> str:
+    """Headless scheduler management (no job_type argument)."""
+    action = args.get("action", "").lower()
+    if action == "add":
+        job_id = sched.add_job(
+            name=args.get("name", "Job"),
+            command=args.get("command", ""),
+            schedule=args.get("schedule", "hourly"),
+        )
+        return f"Job '{args.get('name')}' scheduled (ID: {job_id})."
+    if action == "remove":
+        ok = sched.remove_job(args.get("job_id", ""))
+        return "Job removed." if ok else "Job not found."
+    if action == "list":
+        jobs = sched.list_jobs()
+        if not jobs:
+            return "No scheduled jobs."
+        lines = ["Scheduled Jobs:"]
+        for j in jobs:
+            enabled = "✓" if j["enabled"] else "✗"
+            lines.append(
+                f"  {enabled} [{j['type']}] {j['name']} — every {j['schedule']} (runs: {j['run_count']})"
+            )
+        return "\n".join(lines)
+    return f"Unknown action: {action}"
+
+
+def _headless_override(name: str, args: dict, log) -> str | None:
+    """Return a phone-specific result, or None to use the shared dispatcher."""
+    if name == "calculate":
+        return _headless_calculate(args)
+    if name == "manage_agents":
+        return _headless_manage_agents(args, get_agent_manager())
+    if name == "manage_scheduler":
+        return _headless_manage_scheduler(args, get_scheduler())
+    if name == "agent_task":
+        from agent.task_queue import TaskPriority, get_queue
+
+        priority_map = {
+            "low": TaskPriority.LOW,
+            "normal": TaskPriority.NORMAL,
+            "high": TaskPriority.HIGH,
+        }
+        priority = priority_map.get(
+            args.get("priority", "normal").lower(), TaskPriority.NORMAL
+        )
+        task_id = get_queue().submit(
+            goal=args.get("goal", ""), priority=priority, speak=None
+        )
+        return f"Task started (ID: {task_id})."
+    if name == "shutdown_jarvis":
+        log("Shutdown requested via phone.")
+        os.kill(os.getpid(), signal.SIGTERM)
+        return "Shutting down."
+    return None
+
+
 def execute_tool(ui, name: str, args: dict,
                  speak=lambda x: None,
                  run_async=lambda c: None,
                  shutdown=lambda: None,
+                 headless: bool = False,
                  ) -> str:
     print(f"[ATLANTIS] 🔧 {name}  {args}")
     ui.set_state("THINKING")
+
+    if headless:
+        override = _headless_override(name, args, ui.write_log)
+        if override is not None:
+            return override
 
     if name == "greeting":
         return args.get("response", "Hello!")
@@ -216,7 +347,11 @@ def execute_tool(ui, name: str, args: dict,
         # Normalize the category: the LLM emits "Preferences", "Name", "prefs"
         # and friends, and an off-canonical key would be saved but never read
         # back by the prompt builder.
-        category = normalize_category(args.get("category", "notes"))
+        category = (
+            args.get("category", "notes")
+            if headless
+            else normalize_category(args.get("category", "notes"))
+        )
         key      = args.get("key", "")
         value    = args.get("value", "")
         if key and value:
@@ -230,15 +365,16 @@ def execute_tool(ui, name: str, args: dict,
             print(f"[Memory] 💾 {category}/{key} = {value}")
             # Mirror every remembered fact into the Obsidian vault — the vault
             # is the persistent, shared memory (save_note maps category→folder).
-            try:
-                from actions.obsidian_vault import save_note as _vault_save
-                _vault_save(
-                    title=key,
-                    content=f"{value}\n\ncategory: {category}\nsaved: {datetime.now().isoformat(timespec='seconds')}",
-                    folder=category,
-                )
-            except Exception:
-                pass
+            if not headless:
+                try:
+                    from actions.obsidian_vault import save_note as _vault_save
+                    _vault_save(
+                        title=key,
+                        content=f"{value}\n\ncategory: {category}\nsaved: {datetime.now().isoformat(timespec='seconds')}",
+                        folder=category,
+                    )
+                except Exception:
+                    pass
             # Also store in vector memory for semantic search
             try:
                 threading.Thread(
@@ -248,7 +384,7 @@ def execute_tool(ui, name: str, args: dict,
                 ).start()
             except Exception:
                 pass
-        if not ui.muted:
+        if not headless and not ui.muted:
             ui.set_state("LISTENING")
         return "__SILENT__"
 
@@ -258,7 +394,7 @@ def execute_tool(ui, name: str, args: dict,
             r = open_app(parameters=args, response=None, player=ui)
             result = r or f"Opened {args.get('app_name')}."
             # Feed the dashboard only after an actual successful launch.
-            if r and not any(word in r for word in ("Could not", "Failed", "Unsupported")):
+            if not headless and r and not any(word in r for word in ("Could not", "Failed", "Unsupported")):
                 try:
                     dashboard_log_usage(args.get("app_name", ""))
                 except Exception:
@@ -296,6 +432,33 @@ def execute_tool(ui, name: str, args: dict,
             from actions.browser_control import browser_control
             r = browser_control(parameters=args, player=ui)
             result = r or "Done."
+
+        elif name == "forget_memory":
+            from core.memory_store import MemoryStore
+            result = MemoryStore().forget(args.get("what", ""))
+
+        elif name == "search_emails":
+            from core.google_tools import search_emails
+            result = search_emails(
+                args.get("query", ""), args.get("account"),
+                int(args.get("limit", 20)),
+            )
+
+        elif name == "get_email":
+            from core.google_tools import get_email
+            result = get_email(args.get("id", ""), args.get("account"))
+
+        elif name == "list_recent_emails":
+            from core.google_tools import list_recent_emails
+            result = list_recent_emails(
+                args.get("account"), int(args.get("limit", 20))
+            )
+
+        elif name == "summarize_unread":
+            from core.google_tools import summarize_unread
+            result = summarize_unread(
+                args.get("account"), int(args.get("limit", 20))
+            )
 
         elif name == "browser_use":
             from actions.browser_use_agent import run_browser_use_task
@@ -431,7 +594,7 @@ def execute_tool(ui, name: str, args: dict,
             result = r or "Done."
 
         elif name == "calculate":
-            r = calculate(parameters=args)
+            r = calculate(args.get("expression", ""))
             result = r or "Done."
 
         elif name == "get_location":
@@ -1676,13 +1839,20 @@ def execute_tool(ui, name: str, args: dict,
             else:
                 result = _devices.device_detail(parameters=args, player=ui)
         else:
-            result = "I cannot do that."
-            ui.show_error_state(f"Unknown tool — {name}")
+            if headless:
+                result = f"Unknown tool: {name}"
+            else:
+                result = "I cannot do that."
+                ui.show_error_state(f"Unknown tool — {name}")
 
     except Exception as e:
-        result = "I cannot do that."
-        short = str(e)[:120]
-        ui.show_error_state(f"{name} — {short}")
+        if headless:
+            result = f"Tool '{name}' failed: {e}"
+            ui.write_log(f"Tool '{name}' failed: {e}")
+        else:
+            result = "I cannot do that."
+            short = str(e)[:120]
+            ui.show_error_state(f"{name} — {short}")
         traceback.print_exc()
 
     print(f"[ATLANTIS] 📤 {name} → {str(result)[:80]}")

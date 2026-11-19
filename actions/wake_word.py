@@ -1,16 +1,23 @@
 import logging
-import platform
 import queue
 import threading
+import time
 from collections.abc import Callable
+from pathlib import Path
 
 import numpy as np
 
 logger = logging.getLogger("wake_word")
 
-_OS = platform.system()
-
-DEFAULT_MODEL = "jarvis"  # one of: jarvis, computer, alexa, hey_jarvis
+DEFAULT_MODEL = "jarvis"  # aliased to openwakeword's built-in "hey_jarvis"
+_MODEL_ALIASES = {
+    "jarvis": "hey_jarvis",
+    "hey jarvis": "hey_jarvis",
+    "hey_jarvis": "hey_jarvis",
+    "alexa": "alexa",
+    "computer": "hey_jarvis",
+}
+_WAKE_COOLDOWN = 2.0
 
 
 class WakeWordDetector:
@@ -27,11 +34,13 @@ class WakeWordDetector:
         self._thread: threading.Thread | None = None
         self._audio_queue: queue.Queue = queue.Queue()
         self._oww = None
+        self._model_key = _MODEL_ALIASES.get(model_name.lower(), model_name)
+        self._last_wake = 0.0
 
     def _load_model(self):
         try:
             import openwakeword
-            import openwakeword.model as oww_model
+            from openwakeword.model import Model
         except ImportError:
             logger.error(
                 "OpenWakeWord not installed. Run: pip install openwakeword"
@@ -39,10 +48,17 @@ class WakeWordDetector:
             return False
 
         try:
-            self._oww = oww_model.WakeWordModel(
-                wakeword_models=[self.model_name],
-                inference_framework="onnx",
-            )
+            if self._model_key not in openwakeword.models:
+                logger.warning(
+                    "Unknown wake word '%s' — using 'hey_jarvis'", self.model_name
+                )
+                self._model_key = "hey_jarvis"
+            paths = [
+                p for p in openwakeword.get_pretrained_model_paths()
+                if Path(p).name.startswith(f"{self._model_key}_v")
+            ]
+            self._oww = Model(wakeword_model_paths=paths) if paths else Model()
+            self._model_key = next(iter(self._oww.models), self._model_key)
             return True
         except Exception as e:
             logger.warning("OpenWakeWord model load failed: %s", e)
@@ -67,11 +83,16 @@ class WakeWordDetector:
         logger.info("Wake word detector stopped")
 
     def feed_audio(self, audio_chunk: np.ndarray):
-        if self._running and self._oww is not None:
-            self._audio_queue.put(audio_chunk)
+        if not (self._running and self._oww is not None):
+            return
+        chunk = np.asarray(audio_chunk).reshape(-1)
+        if chunk.dtype != np.int16:
+            chunk = (np.clip(chunk, -1.0, 1.0) * 32767).astype(np.int16)
+        if chunk.size < 400:
+            return
+        self._audio_queue.put(chunk)
 
     def _run(self):
-
         while self._running:
             try:
                 chunk = self._audio_queue.get(timeout=0.1)
@@ -80,13 +101,18 @@ class WakeWordDetector:
 
             try:
                 prediction = self._oww.predict(chunk)
-                score = prediction.get(self.model_name, 0.0)
-                if score > self.sensitivity:
-                    logger.info("Wake word detected! (score=%.3f)", score)
-                    if self.on_wake:
-                        self.on_wake()
+                self._wake_if_needed(prediction.get(self._model_key, 0.0))
             except Exception as e:
                 logger.debug("Wake word inference error: %s", e)
+
+    def _wake_if_needed(self, score: float) -> None:
+        now = time.monotonic()
+        if score <= self.sensitivity or now - self._last_wake <= _WAKE_COOLDOWN:
+            return
+        self._last_wake = now
+        logger.info("Wake word detected! (score=%.3f)", score)
+        if self.on_wake:
+            self.on_wake()
 
     def is_running(self) -> bool:
         return self._running
@@ -109,6 +135,8 @@ def get_detector(
             sensitivity=sensitivity,
             on_wake=on_wake,
         )
+    elif on_wake is not None:
+        _detector.on_wake = on_wake
     return _detector
 
 

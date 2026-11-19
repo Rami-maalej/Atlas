@@ -157,6 +157,20 @@ def _resolve_path(raw: str) -> Path:
 
     return target
 
+def _create_base() -> Path:
+    """Default location for any file/folder the user explicitly asks to
+    create. Stored in memory.json so it can be changed in one place."""
+    try:
+        import json
+        mem = Path(__file__).resolve().parent.parent / "memory.json"
+        base = json.loads(mem.read_text(encoding="utf-8")).get("preferences", {}).get("create_base_dir")
+        if base and Path(base).is_dir():
+            return Path(base)
+    except Exception:
+        pass
+    return Path.home()
+
+
 def _format_size(b: int) -> str:
     for unit in ["B", "KB", "MB", "GB", "TB"]:
         if b < 1024:
@@ -209,7 +223,7 @@ def list_files(path: str = "desktop", show_hidden: bool = False) -> str:
 
 def create_file(path: str, name: str = "", content: str = "") -> str:
     try:
-        base   = _resolve_path(path)
+        base   = _create_base() if not path else _resolve_path(path)
         target = (base / name) if name else base
         if target.is_dir():
             return "Filename required when creating a file inside a folder."
@@ -224,9 +238,13 @@ def create_file(path: str, name: str = "", content: str = "") -> str:
 
 def create_folder(path: str, name: str = "") -> str:
     try:
-        # Detect OS and set default base to user's home / root directory
-        # Windows -> C:\Users\user, Linux/Fedora -> /home/user, Mac -> /Users/user
-        if not path or path.lower() in ("desktop", "home"):
+        # Explicit create commands default to the configured base dir
+        # (/home/ramimaalej). Only an explicit path/shortcut overrides it.
+        if not path:
+            base = _create_base()
+        elif path.lower() == "desktop":
+            base = _get_desktop()
+        elif path.lower() == "home":
             base = Path.home()
         else:
             base = _resolve_path(path)
@@ -350,7 +368,11 @@ def rename_file(path: str, name: str = "", new_name: str = "") -> str:
         if not new_name:
             return "No new name provided."
 
+        if "/" in new_name or "\\" in new_name or new_name in (".", ".."):
+            return "Invalid new name."
         new_path = target.parent / new_name
+        if not _is_safe_path(new_path):
+            return f"Access denied: {new_path}"
         if new_path.exists():
             return f"A file named '{new_name}' already exists here."
 
@@ -646,15 +668,17 @@ def extract(path: str, name: str = "", destination: str = "") -> str:
             return f"Archive not found: {target.name}"
 
         dst = _resolve_path(destination) if destination else target.parent / target.stem
+        if not _is_safe_path(dst):
+            return f"Access denied: {dst}"
         dst.mkdir(parents=True, exist_ok=True)
 
         suffix = target.suffix.lower()
         if suffix == ".zip" or target.name.endswith(".zip"):
             with zipfile.ZipFile(target, "r") as zf:
-                zf.extractall(dst)
+                zf.extractall(dst)  # nosec B202 - zipfile sanitizes ../ and absolute members
         elif suffix in (".tar", ".gz", ".bz2", ".xz") or "".join(target.suffixes[-2:]) in (".tar.gz", ".tar.bz2", ".tar.xz"):
             with tarfile.open(target, "r:*") as tf:
-                tf.extractall(dst)
+                tf.extractall(dst, filter="data")
         else:
             return f"Unsupported archive format: {suffix}"
 
@@ -668,19 +692,25 @@ def download(url: str, destination: str = "downloads", filename: str = "") -> st
     """Download a file from a URL."""
     try:
         import requests
+        if not url.lower().startswith(("http://", "https://")):
+            return "Only http and https URLs are allowed."
         dst_dir = _resolve_path(destination)
-        dst_dir.mkdir(parents=True, exist_ok=True)
-
         if not _is_safe_path(dst_dir):
             return f"Access denied: {dst_dir}"
+        dst_dir.mkdir(parents=True, exist_ok=True)
 
-        # Get filename from URL if not specified
+        # Get filename from URL if not specified; never trust remote names.
         if not filename:
             filename = url.rstrip("/").split("/")[-1]
             if not filename or "." not in filename:
                 filename = "downloaded_file"
+        filename = Path(filename).name
+        if filename in ("", ".", ".."):
+            filename = "downloaded_file"
 
         filepath = dst_dir / filename
+        if not _is_safe_path(filepath):
+            return f"Access denied: {filepath}"
 
         response = requests.get(url, stream=True, timeout=30)
         response.raise_for_status()
@@ -691,7 +721,11 @@ def download(url: str, destination: str = "downloads", filename: str = "") -> st
             import re
             match = re.search(r'filename=["\']?([^"\'\n]+)', content_disp)
             if match:
-                filepath = dst_dir / match.group(1).strip()
+                safe_name = Path(match.group(1).strip()).name
+                if safe_name not in ("", ".", ".."):
+                    filepath = dst_dir / safe_name
+                    if not _is_safe_path(filepath):
+                        return f"Access denied: {filepath}"
 
         with open(filepath, "wb") as f:
             for chunk in response.iter_content(chunk_size=8192):

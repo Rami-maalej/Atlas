@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import platform
+import shlex
 import shutil
 import subprocess
 
@@ -69,7 +70,11 @@ def _os_name() -> str:
 
 def _command_for(os_name: str, tool: str) -> str | None:
     """Return the install command for the given tool on the OS, or None."""
-    name = _KNOWN_ALIASES.get(tool.lower().strip(), tool.lower().strip())
+    # Only known aliases may be installed — never pass a raw LLM/tool string
+    # into a package manager command.
+    name = _KNOWN_ALIASES.get(tool.lower().strip())
+    if not name:
+        return None
 
     if os_name == "windows":
         cmd = f'winget install --id {name} --accept-package-agreements --accept-source-agreements'
@@ -78,7 +83,7 @@ def _command_for(os_name: str, tool: str) -> str | None:
         pkg = _MAC_ALIASES.get(name, name)
         return f"brew install {pkg}"
     # Linux
-    return f"sudo apt-get update -qq && sudo apt-get install -y {name}"
+    return f"sudo apt-get install -y {name}"
 
 
 def install_tool(parameters: dict, player=None) -> str:
@@ -105,8 +110,14 @@ def install_tool(parameters: dict, player=None) -> str:
                 ["cmd", "/c", cmd], capture_output=True, text=True, timeout=600,
             )
         else:
+            if os_name != "windows":
+                subprocess.run(
+                    ["sudo", "apt-get", "update", "-qq"], capture_output=True,
+                    text=True, timeout=600,
+                )
             res = subprocess.run(
-                cmd, shell=True, capture_output=True, text=True, timeout=600,
+                shlex.split(cmd), shell=False, capture_output=True,
+                text=True, timeout=600,
             )
     except subprocess.TimeoutExpired:
         return f"Installing {tool.title()} is taking too long — it may still be running in the background."
