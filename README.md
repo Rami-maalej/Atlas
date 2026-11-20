@@ -1,6 +1,4 @@
-# MARK XL — J.A.R.V.I.S AI Assistant
-
-> **J**ust **A** **R**ather **V**ery **I**ntelligent **S**ystem  
+ATLAS
 > Cross-platform voice AI assistant with offline speech recognition, local/cloud LLM, browser automation, memory, and OS-level control.
 
 ---
@@ -34,7 +32,7 @@
 
 ## What Is This?
 
-MARK XL is a real-time voice AI assistant that runs **on your own computer**. It:
+ATLAS is a real-time voice AI assistant that runs **on your own computer**. It:
 
 - Listens to your voice (offline, using Whisper or Vosk)
 - Understands and responds using an LLM (local via Ollama, or cloud via NVIDIA NIM / OpenAI / Groq / etc.)
